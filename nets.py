@@ -7,7 +7,7 @@ import scipy.integrate as sinteg
 from verkko.binner.binhelp import *
 from scipy.stats import mode
 
-logs_path = '../data/mobile_network/canarias/canarias_call_newid_log.txt'
+logs_path = '../data/mobile_network/galicia/galicia_call_newid_log.txt'
 
 def total_calls(logs_path=logs_path, id_cols=(1,3)):
     """
@@ -332,14 +332,14 @@ if __name__ == '__main__':
     import plots
     from scipy.stats import rankdata
 
-    #times_dic = dict_elements()
-    #net_residual_times(output_path='run/mean_residual_times.edg')
-    #print('Residual Times net created')
+    times_dic = dict_elements()
+    net_residual_times(output_path='run/galicia/mean_residual_times.edg')
+    print('Residual Times net created')
     net = total_calls()
     overlap = at.get_weight_overlap(net)
     calls = at.weights_to_dic(net)
     del net
-    net_res = read_edgelist('run/mean_residual_times.edg')
+    net_res = read_edgelist('run/galicia/mean_residual_times.edg')
     list_ov, list_rt = at.overlap_list(overlap, net_res)
     list_st, _ = at.overlap_list(calls, net_res)
     ind = (np.array(list_rt) > 0) & (np.array(list_st) < 101)
@@ -348,7 +348,8 @@ if __name__ == '__main__':
     list_st = np.array(list_st)[ind]
     list_rt_rank = max(list_st)*rankdata(list_rt)/len(list_rt)
     fig, ax = plots.loglogheatmap(list_st, list_rt, list_ov, 1.65, 1.6)
-    fig.savefig('run/heatmap_rank.png')
+    fig.savefig('run/galicia/heatmap.png')
 
     fig, ax = plots.loglogheatmap(list_st, list_rt_rank, list_ov, 1.6, 1.6)
+    fig.savefig('run/galicia/heatmap_rank.png')
 

@@ -158,16 +158,18 @@ def subset_edges(net, locs):
 
 
 if __name__=='__main__':
-
+    # Obtain subset from the general file
+    # csvgrep -c 15 -m "Galicia" --skip-lines 0 -e "utf-8" -d ";" set2/actives_cityloc_200701_200704.dat > galicia/actives_cityloc_200701_200704.csv
 # create subset of canarias from original file
     log_path = '../data/mobile_network/set2/time_res_2007_sorted_sec.mutual_call_unique3.txt'
-    dic_path = '../data/mobile_network/canarias/canarias.p'
-    re_dic_path = '../data/mobile_network/canarias/canarias_reorder.p'
-    output_path = '../data/mobile_network/canarias/canarias_call_log.txt'
-    #create_subset_dictionary(dic_path=dic_path)
-    #write_logs_subset(log_path, dic_path, output_path)
-    canarias_log_path = '../data/mobile_network/canarias/canarias_call_log.txt'
-    canarias_new_id_path = '../data/mobile_network/canarias/canarias_call_newid_log.txt'
+    subset_path = '../data/mobile_network/galicia/actives_cityloc_200701_200704.csv'
+    dic_path = '../data/mobile_network/galicia/galicia.p'
+    re_dic_path = '../data/mobile_network/galicia/galicia_reorder.p'
+    output_path = '../data/mobile_network/galicia/galicia_call_log.txt'
+    create_subset_dictionary(ref_path=subset_path, dic_path=dic_path)
+    write_logs_subset(log_path, dic_path, output_path)
+    canarias_log_path = '../data/mobile_network/galicia/galicia_call_log.txt'
+    canarias_new_id_path = '../data/mobile_network/galicia/galicia_call_newid_log.txt'
     # reorder dic
     reorder_ids(canarias_log_path, re_dic_path)
     reorder_log_ids(canarias_log_path, canarias_new_id_path, re_dic_path)
