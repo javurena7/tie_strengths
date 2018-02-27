@@ -1,6 +1,7 @@
 import os
 import utils
 import numpy as np
+import pandas as pd
 from netpython import *
 import datetime as dt
 from verkko.binner.binhelp import *
@@ -153,4 +154,34 @@ def overlap_list(overlap, net, ex=False):
         return overlaps, weights, extra
     else:
         return overlaps, weights
+
+def get_metadata(metadata_path, dic_path, column='age'):
+    header = 'uid;age;gender;zipo;lato;longo;subscr;cid;activ_date;disc_date;idc;zipc;latc;longc;adminc;subadminc;localc;distc'
+    data = pd.read_csv(metadata_path, header=None, sep=";")
+    data.columns = header.split(';')
+
+    dic = pd.read_pickle(dic_path)
+    #dic = dict([[v, k] for k, v in dic.items()])
+
+    data['nid'] = data['uid'].apply(lambda x: dic.get(x, -1))
+    data = data[data['nid'] != -1]
+
+    return dict(zip(data['nid'], data[column]))
+
+def get_age_difference(edges, dic_path='../data/mobile_network/canarias/canarias_reorder.p', metadata_path='../data/mobile_network/set2/actives_cityloc_200701_200704.dat'):
+    dic = get_metadata(metadata_path, dic_path, column='age')
+    age_diffs = {}
+    for edge in edges:
+        e0, e1, w = edge
+        try:
+            a0, a1 = dic[e0], dic[e1]
+            if (a0 > 0) and (a1 > 0):
+                age_diffs[e0, e1] = np.abs(a0 - a1)/float(a0 + a1)
+        except:
+            pass
+
+    return age_diffs
+
+
+
 
