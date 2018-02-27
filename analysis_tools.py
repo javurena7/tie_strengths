@@ -136,7 +136,7 @@ def get_weight_overlap(net):
 ###3 for printing: obtain overlap according to a net
 # Use this with net of residual times, and overlap a dic of
 # overlap and total number of calls
-def overlap_list(overlap, net, ex=False):
+def overlap_list(overlap, net, ex=False, all_net=False):
     # extra: return a list of edges as well
     overlaps = []
     weights = []
@@ -146,10 +146,11 @@ def overlap_list(overlap, net, ex=False):
         n1, n2, = np.sort([n1, n2])
         try:
             overlaps.append(overlap[n1, n2])
-            weights.append(w)
-            extra.append((n1, n2))
         except:
-            pass
+            if all_net:
+                overlaps.append(np.nan)
+        weights.append(w)
+        extra.append((n1, n2))
     if ex:
         return overlaps, weights, extra
     else:

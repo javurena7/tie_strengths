@@ -120,6 +120,22 @@ fig.savefig(run_path + '11.png')
 at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_larg.edg') #percolation
 at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_small.edg', reverse=False) #percolation
 
+# Check age difference and overlap
+age_diff = at.get_age_difference(net.edges, dic_path='../mobile_network/canarias/canarias_reorder.p')
+list_ag, list_st = at.overlap_list(age_diff, net, all_net=True)
+list_ov, list_st = at.overlap_list(overlap, net)
+ind = (~np.isnan(np.array(list_ag))) & (np.array(list_st) < 110)
+list_ag = np.array(list_ag)[ind]
+list_ov = np.array(list_ov)[ind]
+list_st = np.array(list_st)[ind]
+list_ag_rank = rankdata(list_ag)/len(list_ag)
+
+fig, ax = plots.lin_bin_plot(list_ag_rank, list_ov, 15, xlabel=r'$R_{AD}$', ylabel=r'$\langle O | R_{AD} \rangle$', title='Overlap as a function of Age Difference Rank')
+fig.savefig(run_path + '13.png')
+
+fig, ax = plots.loglinheatmap(list_st, list_ag_rank, list_ov, ylabel=r'$R_{AD}$', title = 'Overlap as a function of Number of Calls and \n Rank of Age Difference' + r'$\langle O | w, R_{AD} \rangle$')
+fig.savefig(run_path + '14.png')
+
 #3) Percolation
 giant_cl, sus_cl = at.file_perc(run_path + 'calls_perc_larg.edg')
 giant_cs, sus_cs = at.file_perc(run_path + 'calls_perc_small.edg')
