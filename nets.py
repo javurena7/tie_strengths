@@ -8,6 +8,7 @@ from verkko.binner.binhelp import *
 from scipy.stats import mode
 
 logs_path = '../data/mobile_network/galicia/galicia_call_newid_log.txt'
+times_path = 'run/galicia/times_dic.txt'
 
 def total_calls(logs_path=logs_path, id_cols=(1,3)):
     """
@@ -74,7 +75,7 @@ def read_edgelist(path):
 
     return net
 
-def net_residual_times(dic=None, path='times_dic.txt', output_path=''):
+def net_residual_times(dic=None, path=times_path, output_path='', kaplan=True):
     """
     Dic must be an edge dictionary, where values are a list of call times
     Otherwise, write a .txt file containing the edges and values
@@ -84,7 +85,7 @@ def net_residual_times(dic=None, path='times_dic.txt', output_path=''):
         for k, v in dic.iteritems():
             n1, n2 = k
             if len(v) > 1:
-                net[n1, n2] = residual_intervals(v)
+                net[n1, n2] = residual_intervals(v, kaplan)
         return net
     else:
         f = open(output_path, "a")
@@ -93,13 +94,13 @@ def net_residual_times(dic=None, path='times_dic.txt', output_path=''):
             while row:
                 n1, n2, times = utils.parse_time_line(row)
                 if len(times) > 1:
-                    w = residual_intervals(times)
+                    w = residual_intervals(times, kaplan)
                     s = n1 + " " + n2 + " " + str(w)  + "\n"
                     f.write(s)
                 row = r.readline()
         f.close()
 
-def net_burstiness(path='times_dic.txt', output_path=''):
+def net_burstiness(path=times_path, output_path='', kaplan=True):
     """
     Create net with burstiness
     """
@@ -109,13 +110,13 @@ def net_burstiness(path='times_dic.txt', output_path=''):
         while row:
             n1, n2, times = utils.parse_time_line(row)
             if len(times) > 1:
-                w = burstiness(times)
+                w = burstiness(times, kaplan)
                 s = n1 + " " + n2 + " " + str(w) + "\n"
                 f.write(s)
             row = r.readline()
     f.close()
 
-def net_calltimes_mode(path='times_dic.txt', output_path=''):
+def net_calltimes_mode(path=times_path, output_path=''):
     """
     Write edgelist of net with mode of each call time
     """
@@ -132,7 +133,7 @@ def net_calltimes_mode(path='times_dic.txt', output_path=''):
     f.close()
 
 
-def net_tail(path='times_dic.txt', output_path=''):
+def net_tail(path=times_path, output_path=''):
     """
     Create net with tail probabilitys
     """
@@ -183,6 +184,7 @@ def worktime_counts(times_list, worktime=True):
         r = len(times_list) - sum([isworktime(date) for date in times_list])
     return r
 
+
 def isworktime(date):
     if date.weekday() < 6: # check weekdays (6-7 are weekend)
         hour = date.hour
@@ -197,6 +199,7 @@ def sort_times(dic):
     for v in dic.itervalues():
         v.sort()
     return dic
+
 
 def reformat_intervals(x, start=None, end=None, observed_largest=False):
     """
@@ -261,12 +264,19 @@ def kaplan_meier_double(x):
 
     return time_1, surv_1, time_2, surv_2
 
-def residual_intervals(x):
+def residual_intervals(x, kaplan=True):
     """
-    Compute 1/mu, where mu is the mean resideual waiting time
+    Compute the mean resideual waiting time
     """
-    time_1, surv_1, time_2, surv_2 = kaplan_meier_double(x)
-    mu = mean_residual(time_1, surv_1, time_2, surv_2)
+    if kaplan:
+        time_1, surv_1, time_2, surv_2 = kaplan_meier_double(x)
+        mu = mean_residual(time_1, surv_1, time_2, surv_2)
+    else:
+        tl = [dt.datetime.fromtimestamp(t) for t in x]
+        #tl.insert(0, dt.datetime(2007, 1, 1, 1, 0, 0))
+        #tl.append(dt.datetime(2007, 5, 1, 1, 0, 0))
+        days = [(tl[i] - tl[i-1]).total_seconds()/86400.0 for i in range(1, len(tl))]
+        mu = np.mean(days)
 
     return mu
 
@@ -280,16 +290,25 @@ def main_call_time(x):
     return m_h.mode[0]
 
 
-def burstiness(x):
+def burstiness(x, kaplan=True):
 
-    time_1, surv_1, time_2, surv_2 = kaplan_meier_double(x)
-    mu = mean_residual(time_1, surv_1, time_2, surv_2)
-    mu_2 = var_residual(time_1, surv_1, time_2, surv_2, mu)
+    if kaplan:
+        time_1, surv_1, time_2, surv_2 = kaplan_meier_double(x)
+        mu = mean_residual(time_1, surv_1, time_2, surv_2)
+        mu_2 = var_residual(time_1, surv_1, time_2, surv_2, mu)
+    else:
+        tl = [dt.datetime.fromtimestamp(t) for t in x]
+        #tl.insert(0, dt.datetime(2007, 1, 1, 1, 0, 0))
+        #tl.append(dt.datetime(2007, 5, 1, 1, 0, 0))
+        days = [(tl[i] - tl[i-1]).total_seconds()/86400.0 for i in range(1, len(tl))]
+        mu = np.mean(days)
+        mu_2 = np.var(days)
     sigma = np.sqrt(mu_2)
 
     return (sigma - mu)/(sigma + mu)
 
 def alt_burst(x):
+
     time_1, surv_1, time_2, surv_2 = kaplan_meier_double(x)
     mu = nth_moment(time_1, surv_1, time_2, surv_2, 1)
     mu_2 = nth_moment(time_1, surv_1, time_2, surv_2, 2)
