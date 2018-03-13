@@ -4,11 +4,12 @@ from netpython import *
 import datetime as dt
 import lifelines as lls
 import scipy.integrate as sinteg
+import iet as events
 from verkko.binner.binhelp import *
 from scipy.stats import mode
 
-logs_path = '../data/mobile_network/galicia/galicia_call_newid_log.txt'
-times_path = 'run/galicia/times_dic.txt'
+logs_path = '../data/mobile_network/madrid/madrid_call_newid_log.txt'
+times_path = 'run/madrid_simple/times_dic.txt'
 
 def total_calls(logs_path=logs_path, id_cols=(1,3)):
     """
@@ -74,6 +75,29 @@ def read_edgelist(path):
             row = r.readline()
 
     return net
+
+def normalize_dates(x):
+    """
+    Given a timestamp date, normalize it so that it falls between 0 and 1:
+    Formula: (x-start)/(end-start)
+    """
+    return (x - 1167606000)/10364399.0
+
+
+def km_burstiness(x, method='km'):
+    """
+    Burstiness estimator with Mikko's library
+
+
+    method='km' or 'naive'
+    """
+    estimator = events.IntereventTimeEstimator(1, mode='censorall')
+    x = [normalize_dates(d) for d in x]
+    estimator.add_time_seq(x)
+    mu = estimator.estimate_moment(1, 'km')
+    sigma = np.sqrt(estimator.estimate_moment(2, 'km'))
+    return (sigma - mu)/(sigma + mu)
+
 
 def net_residual_times(dic=None, path=times_path, output_path='', kaplan=True):
     """
