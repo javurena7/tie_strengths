@@ -77,8 +77,8 @@ def dics_to_lists(dic_list):
     return lists
 
 
-def betweeness_centrality(net):
-    return netext.getBetweennessCentrality(net)
+def betweeness_centrality(net, edgeBC=True):
+    return netext.getBetweennessCentrality(net, edgeBC=edgeBC)
 
 def file_perc(file_path, size=1000):
     giants = []
@@ -92,7 +92,7 @@ def file_perc(file_path, size=1000):
         sus.append(cs.ktree.getSusceptibility())
     return giants, sus
 
-def plot_perc(giants, label='', line='-',fig=None, ax=None, xlabel=r'$f$', ylabel=r'$P_{GC}$', title='Percolation'):
+def plot_perc(giants, label='', line='-', fig=None, ax=None, xlabel=r'$f$', ylabel=r'$P_{GC}$', title='Percolation'):
     size = len(giants)
     nnodes = max(giants)
     f = map(lambda x: x/float(size), range(size))

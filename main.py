@@ -1,8 +1,15 @@
-import netpython; from nets import *; import analysis_tools as at; import matplotlib.pyplot as plt; import numpy as np; import plots; from scipy.stats import rankdata; import powerlaw
-run_path = 'run/galicia/'
-kaplan = True
-# 0) Preprocessing, where is data coming from?
+import netpython
+from nets import *
+import analysis_tools as at
+import numpy as np
+import plots
+from scipy.stats import rankdata
+import powerlaw
 
+run_path = 'run/canarias_m_simple/'
+kaplan = 'km'
+dic_path='../data/mobile_network/canarias/canarias_reorder.p'
+# 0) Preprocessing, where is data coming from?
 # 1) Obtain basic network statistics
 try:
     net = read_edgelist(run_path + 'net.edg')
@@ -12,19 +19,19 @@ except:
 
 ## create dictionary with times
 times = dict_elements()
-utils.write_dic(times, run_path + 'times_dic.txt')
+#utils.write_dic(times, run_path + 'times_dic.txt')
 
-del times
+#del times
 
-at.write_sorted_edges(net, run_path + 'calls_perc_larg.edg') #percolation
-at.write_sorted_edges(net, run_path + 'calls_perc_small.edg', reverse=False) #percolation
+#at.write_sorted_edges(net, run_path + 'calls_perc_larg.edg') #percolation
+#at.write_sorted_edges(net, run_path + 'calls_perc_small.edg', reverse=False) #percolation
 
-weights = list(net.weights)
-degrees = [net.deg(n) for n in net]
-fig, ax, p_wgh = plots.powerlaw(weights, 'Weight Distribution', r'$w$', r'$P(w)$', label='Weight (# calls)', factor=1.15)
-fig.savefig(run_path + '1.png')
-fig, ax, p_deg = plots.powerlaw(degrees, 'Degree Distribution', r'$k$', r'$P(k)$', label='Degree', factor=1.15)
-fig.savefig(run_path + '2.png')
+#weights = list(net.weights)
+#degrees = [net.deg(n) for n in net]
+#fig, ax, p_wgh = plots.powerlaw(weights, 'Weight Distribution', r'$w$', r'$P(w)$', label='Weight (# calls)', factor=1.15)
+#fig.savefig(run_path + '1.png')
+#fig, ax, p_deg = plots.powerlaw(degrees, 'Degree Distribution', r'$k$', r'$P(k)$', label='Degree', factor=1.15)
+#fig.savefig(run_path + '2.png')
 
 # 1.a) Plot total network time
 #net_tot = total_time()
@@ -36,21 +43,19 @@ fig.savefig(run_path + '2.png')
 
 #fig, ax, p_tm = plots.powerlaw(tot_times, 'Total time call distribution', r'$t$' + ' (minutes)', r'$P(t)$', label='Total call time', fit=False)
 #fig.savefig(run_path + '3.png')
-
 overlap = at.get_weight_overlap(net)
-
-at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_larg.edg') #percolation
-at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_small.edg', reverse=False) #percolation
-
+#at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_larg.edg') #percolation
+#at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_small.edg', reverse=False) #percolation
 calls = at.weights_to_dic(net)
+
 list_ov, list_st = at.overlap_list(overlap, net)
 ind = np.array(list_st) < 110
 
 list_ov = np.array(list_ov)[ind]
 list_st = np.array(list_st)[ind]
 
-fig, ax = plots.log_bin_plot(list_st, list_ov, xlabel=r'$w$' + ' (# calls)', ylabel=r'$\langle O | w\rangle$', title='Average Overlap as a function of number of calls')
-fig.savefig(run_path + '4.png')
+#fig, ax = plots.log_bin_plot(list_st, list_ov, xlabel=r'$w$' + ' (# calls)', ylabel=r'$\langle O | w\rangle$', title='Average Overlap as a function of number of calls')
+#fig.savefig(run_path + '4.png')
 
 # 2) Deal with mean waiting time and burstiness
 # 2.a) Create file
@@ -67,22 +72,21 @@ fig.savefig(run_path + '5.png')
 list_ov, list_rt = at.overlap_list(overlap, net_res)
 list_st, _ = at.overlap_list(calls, net_res)
 ind = (np.array(list_rt) > 0) & (np.array(list_st) < 101)
-list_rt = np.array(list_rt)[ind]
+list_rt = np.array(list_rt)[ind]/(24*3600)
 list_ov = np.array(list_ov)[ind]
 list_st = np.array(list_st)[ind]
-fig, ax = plots.log_bin_plot(list_rt, list_ov)
+fig, ax = plots.lin_bin_plot(list_rt, list_ov, 10, r'$\tau$', r'$\langle O | \tau \rangle$', 'Overlap as a function of mean Inter-event time')
 fig.savefig(run_path + '6.png')
-fig, ax = plots.loglogheatmap(list_st, list_rt, list_ov, 1.65, 1.6)
+fig, ax = plots.loglinheatmap(list_st, list_rt, list_ov, 1.65, 20)
 fig.savefig(run_path + '7.png')
 list_rt_rank = rankdata(list_rt)/len(list_rt)
-fig, ax = plots.loglinheatmap(list_st, list_rt_rank, list_ov, 1.321, 20, xlabel=r'$w$', ylabel=r'$R_{\bar{\tau}}$' + ' (Rank of waiting times)', title='Overlap as a function of Calls and Rank of Waiting Times\n' + r'$\langle O | w, R_{\bar{\tau}}\rangle$')
+fig, ax = plots.loglinheatmap(list_st, list_rt_rank, list_ov, 1.6, 20, xlabel=r'$w$', ylabel=r'$R_{\bar{\tau}}$' + ' (Rank of Inter-event times)', title='Overlap as a function of Calls and Rank of Inter-Event Times\n' + r'$\langle O | w, R_{\bar{\tau}}\rangle$')
 fig.savefig(run_path + '8.png')
 at.write_sorted_edges(net_res, run_path + 'waittimes_perc_larg.edg', reverse=False) #percolation
 at.write_sorted_edges(net_res, run_path + 'waittimes_perc_small.edg') #percolation
 
 del net_res
 del res_times
-
 net_brt = read_edgelist(run_path + 'burstiness.edg')
 brs_time = list(net_brt.weights)
 
@@ -96,6 +100,11 @@ fig, ax = plots.lin_bin_plot(list_br, list_ov)
 fig.savefig(run_path + '9.png')
 fig, ax = plots.loglinheatmap(list_st, list_br, list_ov, factor_x = 1.5, n_bins_y = 20)
 fig.savefig(run_path + '10.png')
+
+list_br_rank = rankdata(list_br)/float(len(list_br))
+
+fig, ax = plots.loglinheatmap(list_st, list_br_rank, list_ov, factor_x = 1.5, n_bins_y = 20, ylabel='Burstiness Rank ' + r'$R_{B}$', title='Overlap as a function fo the number of calls \n and Burstiness Rank ' + r'$\langle O | w, R_B \rangle$')
+fig.savefig(run_path + '10_rank.png')
 at.write_sorted_edges(net_brt, run_path + 'burst_perc_larg.edg') #percolation
 at.write_sorted_edges(net_brt, run_path + 'burst_perc_small.edg', reverse=False) #percolation
 
@@ -121,7 +130,7 @@ at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_larg.edg') #perco
 at.write_sorted_edges_from_dic(overlap, run_path + 'overl_perc_small.edg', reverse=False) #percolation
 
 # Check age difference and overlap
-age_diff = at.get_age_difference(net.edges, dic_path='../mobile_network/canarias/canarias_reorder.p')
+age_diff = at.get_age_difference(net.edges, dic_path=dic_path)
 list_ag, list_st = at.overlap_list(age_diff, net, all_net=True)
 list_ov, list_st = at.overlap_list(overlap, net)
 ind = (~np.isnan(np.array(list_ag))) & (np.array(list_st) < 110)

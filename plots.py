@@ -99,7 +99,7 @@ def logmeans(bins):
     return [np.mean([bins[i], bins[i+1]]) for i in range(len(bins)-1)]
 
 
-def log_bin_plot(x, y, factor=1.82, col=None, fig=None, ax=None, xlabel=r'$\bar{\tau}$' + ' (days)', ylabel=r'$\langle O | \bar{\tau} \rangle$', title='Overlap as a Function of Mean Waiting time'):
+def log_bin_plot(x, y, factor=1.82, col=None, fig=None, ax=None, xlabel=r'$\bar{\tau}$' + ' (days)', ylabel=r'$\langle O | \bar{\tau} \rangle$', title='Overlap as a Function of Mean Inter-Event time', label=None):
     """
     Used for mean waiting time and weight vs Overlap
     """
@@ -108,7 +108,7 @@ def log_bin_plot(x, y, factor=1.82, col=None, fig=None, ax=None, xlabel=r'$\bar{
     if not fig:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    ax.semilogx(bins.centers, bin_means)
+    ax.semilogx(bins.centers, bin_means, label=label)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -135,7 +135,7 @@ def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle
     return fig, ax
 
 
-def loglogheatmap(x, y, z, factor_x=1.5, factor_y=1.45, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$\bar{\tau_R}$ (days)', title='Overlap as a function of and Number of Calls and Waiting Time\n' + r'$\langle O | w, \bar{\tau_R} \rangle$'):
+def loglogheatmap(x, y, z, factor_x=1.5, factor_y=1.45, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$\bar{\tau}$ (days)', title='Overlap as a function of and Number of Calls and Inter-event Time\n' + r'$\langle O | w, \bar{\tau} \rangle$'):
 
     bins_x = binner.Bins(float, min(x), max(x), 'log', factor_x)
     bins_y = binner.Bins(float, min(y) + .5, max(y), 'log', factor_y)
@@ -210,11 +210,5 @@ def plot_cumul_dist(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylab
     ax.set_title(title)
     ax.legend(loc=0)
     return fig, ax
-
-
-# from verkko.binner import bins as binner
-# bins = binner.Bins(float, 0, 120.0 #max value#, '', 1.5)
-# bin_means, bin_edges, binnumber = binned_statistic(weights, overlap, bins=bins.bin_limits)
-# plt.plot(bin_means, np.log(bins.centers)
 
 

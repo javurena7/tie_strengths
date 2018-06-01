@@ -1,5 +1,5 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import re
@@ -72,11 +72,14 @@ def write_edges(net, output_path):
         f.write(e)
     f.close()
 
-def write_dic(dic, output_path):
+def write_dic(dic, output_path, add=1167606000):
     f = open(output_path, "w+")
     for key, value in dic.iteritems():
-        value = [str(v) for v in value]
-        w = str(key[0]) + " " +  str(key[1]) + " " + " ".join(value) + "\n"
+        if hasattr(value, '__iter__'):
+            value = [str(v + add) for v in value]
+            w = str(key[0]) + " " +  str(key[1]) + " " + " ".join(value) + "\n"
+        else:
+            w = str(key[0]) + " " + str(key[1]) + " " + str(value) + "\n"
         f.write(w)
     f.close()
 

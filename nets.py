@@ -1,4 +1,3 @@
-import utils
 import numpy as np
 from netpython import *
 import datetime as dt
@@ -7,9 +6,10 @@ import scipy.integrate as sinteg
 import iet as events
 from verkko.binner.binhelp import *
 from scipy.stats import mode
+import utils
 
 logs_path = '../data/mobile_network/madrid/madrid_call_newid_log.txt'
-times_path = 'run/madrid_simple/times_dic.txt'
+times_path = 'run/madrid_2504/times_dic.txt'
 
 def total_calls(logs_path=logs_path, id_cols=(1,3)):
     """
@@ -24,6 +24,21 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
             net[int(rs[id_0]), int(rs[id_1])] += 1
             row = r.readline()
     return  net
+
+def total_calls_times(times_path):
+    """
+    Create net with total number of calls using times of calls
+    """
+    net = netio.pynet.SymmNet()
+    with open(times_path, 'r') as r:
+        row = r.readline()
+        while row:
+            row = r.readline()
+            n1, n2, times = utils.parse_time_line(row)
+            net[int(n1), int(n2)] = len(times)
+            row = r.readline()
+    return net
+
 
 def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
     """
@@ -55,9 +70,9 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
             v1 = int(rs[id_1])
             key = (min(v0, v1), max(v0, v1))
             try:
-                dic[key].append(int(rs[id_store]))
+                dic[key].append(int(rs[id_store]) - 1167606000)
             except:
-                dic[key] = [int(rs[id_store])]
+                dic[key] = [int(rs[id_store]) - 1167606000]
             if extra_id:
                 dic[key].append(int(rs[extra_id]))
             row = r.readline()
@@ -76,6 +91,73 @@ def read_edgelist(path):
 
     return net
 
+
+def number_of_bursty_trains(x, delta):
+    if len(x) > 1:
+        t = 0.0
+        e = 0.0
+        for t0, t1 in zip(x[:-1], x[1:]):
+            t += t1 - t0
+            if t > delta:
+                t = 0.0
+                e += 1
+        return e
+    return 1.0
+
+
+def read_timesdic(path):
+    dic = {}
+    with open(path, 'r') as r:
+        row = r.readline()
+        while row:
+            rs = row.split(' ')
+            rs = [int(s) for s in rs]
+            dic[(rs[0], rs[1])] = rs[2:]
+            row = r.readline()
+
+    return dic
+
+def read_edgedic(path):
+    dic = {}
+    with open(path, 'rb') as r:
+        row = r.readline()
+        while row:
+            rs = row.split(' ')
+            r_0 = min(int(rs[0]), int(rs[1]))
+            r_1 = max(int(rs[0]), int(rs[1]))
+            dic[(r_0, r_1)] = [np.float64(rs[2])]
+            row = r.readline()
+    return dic
+
+
+def bursty_trains_to_file(path, output_path, delta=3600):
+    f = open(output_path, "a")
+    with open(path, 'r') as r:
+        row = r.readline()
+        while row:
+            n1, n2, times = utils.parse_time_line(row)
+            if len(times) > 1:
+                w = number_of_bursty_trains(times, delta)
+                s = n1 + " " + n2 + " " + str(w)  + "\n"
+                f.write(s)
+            row = r.readline()
+    f.close()
+
+
+def mean_inter_event_km(t_seq, mode='km+', max_date=1177970399., moment=1):
+    """
+    Other mode: naive
+    """
+    r = events.IntereventTimeEstimator(max_date, 'censorall')
+    r.add_time_seq(t_seq)
+    if mode == 'km+':
+        mode = 'km'
+        m = max(r.observed_iets)
+        r.forward_censored_iets[m] = 1
+        r.backward_censored_iets[m] = 1
+    return r.estimate_moment(moment, mode)
+
+
 def normalize_dates(x):
     """
     Given a timestamp date, normalize it so that it falls between 0 and 1:
@@ -83,23 +165,37 @@ def normalize_dates(x):
     """
     return (x - 1167606000)/10364399.0
 
+def km_residual_intervals(x, method='km', max_date=1177970399.):
 
-def km_burstiness(x, method='km'):
+    estimator = events.IntereventTimeEstimator(max_date, mode='censorall')
+    if method == 'km+':
+        method = 'km'
+    if x[-1] < max_date:
+            x.append(max_date)
+    estimator.add_time_seq(x)
+    m = max(estimator.observed_iets)
+    estimator.forward_censored_iets[m] = 1
+    estimator.backward_censored_iets[m] = 1
+    mu = estimator.estimate_moment(1, method)
+    return mu
+
+def km_burstiness(x, method='km', max_date=1177970399.):
     """
     Burstiness estimator with Mikko's library
 
-
-    method='km' or 'naive'
+    method='km' or 'naive', if 'km+', add values to be censored at beginning and end
     """
-    estimator = events.IntereventTimeEstimator(1, mode='censorall')
-    x = [normalize_dates(d) for d in x]
+    estimator = events.IntereventTimeEstimator(max_date, mode='censorall')
     estimator.add_time_seq(x)
-    mu = estimator.estimate_moment(1, 'km')
-    sigma = np.sqrt(estimator.estimate_moment(2, 'km'))
+    m = max(estimator.observed_iets)
+    estimator.forward_censored_iets[m] = 1
+    estimator.backward_censored_iets[m] = 1
+    mu = estimator.estimate_moment(1, method)
+    sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
     return (sigma - mu)/(sigma + mu)
 
 
-def net_residual_times(dic=None, path=times_path, output_path='', kaplan=True):
+def net_residual_times(dic=None, path=times_path, output_path='', kaplan='naive'):
     """
     Dic must be an edge dictionary, where values are a list of call times
     Otherwise, write a .txt file containing the edges and values
@@ -118,15 +214,15 @@ def net_residual_times(dic=None, path=times_path, output_path='', kaplan=True):
             while row:
                 n1, n2, times = utils.parse_time_line(row)
                 if len(times) > 1:
-                    w = residual_intervals(times, kaplan)
+                    w = mean_inter_event_km(times, kaplan)/86400
                     s = n1 + " " + n2 + " " + str(w)  + "\n"
                     f.write(s)
                 row = r.readline()
         f.close()
 
-def net_burstiness(path=times_path, output_path='', kaplan=True):
+def net_burstiness(path=times_path, output_path='', kaplan='naive'):
     """
-    Create net with burstiness
+    Create net with burstiness, kaplan is either 'km', 'km+', 'naive'
     """
     f = open(output_path, "a")
     with open(path, 'r') as r:
@@ -134,7 +230,7 @@ def net_burstiness(path=times_path, output_path='', kaplan=True):
         while row:
             n1, n2, times = utils.parse_time_line(row)
             if len(times) > 1:
-                w = burstiness(times, kaplan)
+                w = km_burstiness(times, kaplan)
                 s = n1 + " " + n2 + " " + str(w) + "\n"
                 f.write(s)
             row = r.readline()
@@ -225,7 +321,7 @@ def sort_times(dic):
     return dic
 
 
-def reformat_intervals(x, start=None, end=None, observed_largest=False):
+def reformat_intervals(x, start=None, end=None, observed_largest=True):
     """
     From a list of timestamps, return two sets of (durations, censorship),
     where the first set is left-censored and the other is right-censored
@@ -246,7 +342,7 @@ def reformat_intervals(x, start=None, end=None, observed_largest=False):
     # 86400 = 24*60*60 convert to day from seconds
     if not observed_largest:
         E1[np.argmax(T1)] = False
-        E2[np.argmax (T2)] = False
+        E2[np.argmax(T2)] = False
 
     return T1/(86400), E1, T2/(86400), E2
 
@@ -322,8 +418,6 @@ def burstiness(x, kaplan=True):
         mu_2 = var_residual(time_1, surv_1, time_2, surv_2, mu)
     else:
         tl = [dt.datetime.fromtimestamp(t) for t in x]
-        #tl.insert(0, dt.datetime(2007, 1, 1, 1, 0, 0))
-        #tl.append(dt.datetime(2007, 5, 1, 1, 0, 0))
         days = [(tl[i] - tl[i-1]).total_seconds()/86400.0 for i in range(1, len(tl))]
         mu = np.mean(days)
         mu_2 = np.var(days)
