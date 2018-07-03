@@ -64,7 +64,6 @@ class TieStrengths(object):
         if not os.path.isfile(self.paths[path_key]):
             net_burstiness(self.paths['times_dict'], self.paths[path_key], kaplan=kaplan)
 
-
     def _mean_inter_event(self, kaplan):
         path_key = 'mean_iet_' + kaplan[:2]
         path = 'mean_iet_{}.edg'.format(kaplan[:2])
