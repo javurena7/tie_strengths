@@ -79,6 +79,40 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
 
     return dic
 
+
+def reciprocity(logs_path=logs_path, output_path=None, id_cols=(1, 3)):
+    """
+    Reciprocity: ratio of how it is for one node to call the other (0 implies equal number of calls, 1 implies all calls are placed by one node)
+    """
+    dic = {}
+    with open(logs_path, 'r') as r:
+        row = r.readline()
+        while row:
+            rs = row.split(' ')
+            v0, v1 = int(rs[id_cols[0]]), int(rs[id_cols[1]])
+            key = (min(v0, v1), max(v0, v1))
+            try:
+                dic[key] = _recip(key, v0, dic[key])
+            except:
+                dic[key] = _recip(key, v0, [0, 0])
+            row = r.readline()
+
+    dic = {key: np.abs(float(val[0]))/val[1] for key, val in dic.iteritems()}
+    if output_path:
+        utils.write_dic(dic, output_path, 0.0)
+    else:
+        return dic
+
+
+def _recip(key, v0, val):
+    if key[0] == v0:
+        val[0] += 1
+    else:
+        val[0] -= 1
+    val[1] += 1
+
+    return val
+
 def read_edgelist(path):
 
     net = netio.pynet.SymmNet()
@@ -193,6 +227,7 @@ def km_burstiness(x, method='km', max_date=1177970399.):
     mu = estimator.estimate_moment(1, method)
     sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
     return (sigma - mu)/(sigma + mu)
+
 
 
 def net_residual_times(dic=None, path=times_path, output_path='', kaplan='naive'):

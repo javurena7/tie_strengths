@@ -21,6 +21,7 @@ class TieStrengths(object):
             os.makedirs(run_path)
         self.analysis = {}
         self.paths = {'times_dict': os.path.join(run_path, 'times_dic.txt')}
+        self.paths['logs'] = logs_path
         if not os.path.isfile(self.paths['times_dict']):
             times = dict_elements(logs_path)
             utils.write_dic(times, self.paths['times_dict'])
@@ -77,6 +78,10 @@ class TieStrengths(object):
         if not os.path.isfile(self.paths['calltimes']):
             net_calltimes_mode(self.paths['times_dict'], self.paths['calltimes'])
 
+    def _reciprocity(self):
+        self.paths['reciprocity'] = os.path.join(self.run_path, 'reciprocity.edg')
+        if not os.path.isfile(self.paths['reciprocity']):
+            reciprocity(self.paths['logs'], self.paths['reciprocity'])
 
     def _bursty_trains(self):
         self.paths['trains'] = os.path.join(self.run_path, 'bursty_trains.edg')
@@ -96,6 +101,8 @@ class TieStrengths(object):
         self._calltimes_mode()
 
         self._bursty_trains()
+
+        self._reciprocity()
 
         self._join_stats()
 
@@ -197,10 +204,7 @@ class TieStrengths(object):
         for column, t in zip(x.iteritems(), transfs):
             col_type = bin_params[column[0]][0]
             if col_type == 'log' and t not in ['rank', 'raw']:
-                try:
-                    b = binner.Bins(float, max(1, min(column[1])), max(column[1]), 'log', bin_params.get(column[0], 1.5)[1])
-                except:
-                    import pdb; pdb.set_trace()
+                b = binner.Bins(float, max(1, min(column[1])), max(column[1]), 'log', bin_params.get(column[0], 1.5)[1])
             else:
                 if col_type != 'log':
                     n_bin = bin_params[column[0]][1]
@@ -252,17 +256,13 @@ class TieStrengths(object):
             transfs = list(self._get_variable_transformations(comb, conf))
             scores, n_row = [], []
             for transf in transfs:
-                #TODO: iterate over different types of bins
                 X = self._transform_variables(self.df[comb], transf)
                 idx = pd.notnull(X).all(1) & ~np.isinf(X).any(1)
                 X = X[idx]
                 bins, centers = self._get_bins(X, conf['bin_params'], transf)
                 Y, X = self._bin_and_transform(X, self.df.overlap[idx], bins, centers)
                 idx = pd.notnull(Y).all(1)
-                try:
-                    X = X[idx]
-                except:
-                    import pdb; pdb.set_trace()
+                X = X[idx]
                 Y = Y[idx]
                 n_row.append(X.shape[0])
                 try:
