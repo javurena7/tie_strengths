@@ -10,7 +10,6 @@ from itertools import chain, combinations, product
 from verkko.binner import bins as binner
 from scipy.stats import binned_statistic_dd
 from sklearn import linear_model
-import powerlaw
 import os
 import yaml
 
@@ -29,25 +28,23 @@ class TieStrengths(object):
 
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
-            net = total_calls_times(self.paths['times_dict'])
-            utils.write_edges(net, self.paths['net'])
+            total_calls_times(self.paths['times_dict'], self.paths['net'])
 
         if extended_log_path is not None:
-            del net
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             if not os.path.isfile(self.paths['overlap']):
                 net_ext = total_calls(extended_log_path)
                 utils.write_edges(net_ext, self.paths['extended_net'])
                 overlap = at.get_weight_overlap(net_ext)
-                utils.write_dic(overlap, self.paths['overlap'], add = 0.0)
+                utils.write_dic(overlap, self.paths['overlap'])
 
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
                 overlap = at.get_weight_overlap(net)
-                utils.write_dic(overlap, self.paths['overlap'], add = 0.0)
+                utils.write_dic(overlap, self.paths['overlap'])
 
         self.run_path = run_path
         self.delta = delta

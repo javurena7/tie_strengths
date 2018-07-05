@@ -1,9 +1,9 @@
 import numpy as np
 from netpython import *
 import datetime as dt
-import lifelines as lls
+#import lifelines as lls
 import scipy.integrate as sinteg
-import iet as events
+from iet import events
 from verkko.binner.binhelp import *
 from scipy.stats import mode
 import utils
@@ -25,20 +25,26 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
             row = r.readline()
     return  net
 
-def total_calls_times(times_path):
+def awk_total_calls(logs_path, output_path):
+    cmd = "awk '{($4 > $2) ? p = $2 {sp} $4 : p = $4 {sp} $2; print p}' {logs_path} | sort | uniq -c > output.txt".format(sp = '" "', logs_path = logs_path)
+
+
+def total_calls_times(times_path, output_path):
     """
     Create net with total number of calls using times of calls
     """
     net = netio.pynet.SymmNet()
+    w = open(output_path, 'wb')
     with open(times_path, 'r') as r:
         row = r.readline()
         while row:
             row = r.readline()
             n1, n2, times = utils.parse_time_line(row)
-            net[int(n1), int(n2)] = len(times)
+            f = ' '.join(n1, n2, str(len(times)))
+            w.write(f)
+            #net[int(n1), int(n2)] = len(times)
             row = r.readline()
-    return net
-
+    w.close()
 
 def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
     """
@@ -54,6 +60,10 @@ def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
             row = r.readline()
     return net
 
+def awk_times(logs_path, output_path):
+    cmd = "SORT caller ids" #'{($4 > $2) ? p = $2 " " $4 " " $1: p = $4 " " $2 " " $1; print p}'
+    cmd = "awk '{if(a[$2" "$4])a[$2" "$4]=a[$2" "$4]" "$1; else a[$2" "$4]=$1;}END{for (i in a) print i, a[i];}' {} > {}".format(logs_path, output_path)
+
 def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None):
     """
     Function for creating a dictionary with all the elements, where each entry
@@ -62,6 +72,7 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
     """
     id_0, id_1 = id_cols
     dic = {}
+    c = 0
     with open(logs_path, 'r') as r:
         row = r.readline()
         while row:
@@ -70,12 +81,15 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
             v1 = int(rs[id_1])
             key = (min(v0, v1), max(v0, v1))
             try:
-                dic[key].append(int(rs[id_store]) - 1167606000)
+                dic[key].append(int(rs[id_store]))
             except:
-                dic[key] = [int(rs[id_store]) - 1167606000]
+                dic[key] = [int(rs[id_store])]
             if extra_id:
                 dic[key].append(int(rs[extra_id]))
             row = r.readline()
+            if c % 1000000 == 0:
+                print('row: {}'.format(c))
+            c += 1
 
     return dic
 
@@ -99,7 +113,7 @@ def reciprocity(logs_path=logs_path, output_path=None, id_cols=(1, 3)):
 
     dic = {key: np.abs(float(val[0]))/val[1] for key, val in dic.iteritems()}
     if output_path:
-        utils.write_dic(dic, output_path, 0.0)
+        utils.write_dic(dic, output_path)
     else:
         return dic
 

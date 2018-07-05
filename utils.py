@@ -72,11 +72,11 @@ def write_edges(net, output_path):
         f.write(e)
     f.close()
 
-def write_dic(dic, output_path, add=1167606000):
+def write_dic(dic, output_path):
     f = open(output_path, "w+")
     for key, value in dic.iteritems():
         if hasattr(value, '__iter__'):
-            value = [str(v + add) for v in value]
+            value = [str(v) for v in value]
             w = str(key[0]) + " " +  str(key[1]) + " " + " ".join(value) + "\n"
         else:
             w = str(key[0]) + " " + str(key[1]) + " " + str(value) + "\n"
