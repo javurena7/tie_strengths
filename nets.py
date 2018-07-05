@@ -1,7 +1,7 @@
 import numpy as np
 from netpython import *
 import datetime as dt
-#import lifelines as lls
+import subprocess
 import scipy.integrate as sinteg
 from iet import events
 from verkko.binner.binhelp import *
@@ -26,7 +26,9 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
     return  net
 
 def awk_total_calls(logs_path, output_path):
-    cmd = "awk '{($4 > $2) ? p = $2 {sp} $4 : p = $4 {sp} $2; print p}' {logs_path} | sort | uniq -c > output.txt".format(sp = '" "', logs_path = logs_path)
+    main_awk = "{($4 > $2) ? p = $2 FS $4 : p = $4 FS $2; print p}"
+    cmd_list = ["awk", "'", main_awk, "'", logs_path , "| sort | uniq -c >", output_path]
+    subprocess.Popen(' '.join(cmd_list))
 
 
 def total_calls_times(times_path, output_path):
