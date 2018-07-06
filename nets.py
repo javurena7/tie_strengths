@@ -66,18 +66,21 @@ def awk_times(logs_path, output_path):
     """
     Use awk to obtain a file with call timestamps in the format:
         id_1 id_2 ts_1 ts_2 ... ts_n
-    where id_1 is the min id of the edge, and id_2 is the max id of the edge, and ts_i ís the timestamp for the i-th call between id_1 and id_2
+    where id_1 is the min id of the edge, and id_2 is the max id of the edge, and ts_i is the timestamp for the i-th call between id_1 and id_2
     """
+
     tmp_file = "tmp_times_file.txt"
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
     main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1: p = $4 FS $2 FS $1; print p}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]
-    subprocess.Popen(' '.join(cmd_list))
+    subprocess.Popen(cmd_list, shell=True)
 
     # Next, use awk to obtain a file with id_1, id_2 followed by a list of timestamps
     main_awk = "{if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3; else a[$1 FS $2] = $3;} END {for (i in a) print i, a[i];}"
-    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path, "&", "rm", tmp_file]
-    subprocess.Popen(' '.join(cmd_list))
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
+    #subprocess.Popen(' '.join(cmd_list), shell=True)
+
+    # Remove temporal file
 
 def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None):
     """
