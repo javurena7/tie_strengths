@@ -22,23 +22,30 @@ class TieStrengths(object):
         self.paths = {'times_dict': os.path.join(run_path, 'times_dic.txt')}
         self.paths['logs'] = logs_path
         if not os.path.isfile(self.paths['times_dict']):
-            times = dict_elements(logs_path)
-            utils.write_dic(times, self.paths['times_dict'])
-            del times
-
+            print('Creating time dictionary... \n')
+            awk_times(self.paths['logs'], self.paths['times_dict'])
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
-            total_calls_times(self.paths['times_dict'], self.paths['net'])
+            print('Creating net... \n')
+            awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
+            #total_calls_times(self.paths['times_dict'], self.paths['net'])
 
         if extended_log_path is not None:
+            self.paths['extended_logs'] = os.path.join(extended_log_path)
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
+            if not os.path.isfile(self.paths['extended_net']):
+                awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
+                print('Creating extended net... \n')
+            awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
             if not os.path.isfile(self.paths['overlap']):
-                net_ext = total_calls(extended_log_path)
-                utils.write_edges(net_ext, self.paths['extended_net'])
+                print('Obtaining net overlap... \n')
+                print('\t Reading edges... \n')
+                net_ext = netio.loadNet(self.paths['extended_net']) #read_edgelist(self.paths['extended_net'])
+                print('\t Calculating overlap... \n')
                 overlap = at.get_weight_overlap(net_ext)
                 utils.write_dic(overlap, self.paths['overlap'])
-
+                print('\t Done. \n')
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
             if not os.path.isfile(self.paths['overlap']):

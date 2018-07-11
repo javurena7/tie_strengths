@@ -79,7 +79,9 @@ def write_dic(dic, output_path):
             value = [str(v) for v in value]
             w = str(key[0]) + " " +  str(key[1]) + " " + " ".join(value) + "\n"
         else:
-            w = str(key[0]) + " " + str(key[1]) + " " + str(value) + "\n"
+            k_0 = str(min(key[0], key[1]))
+            k_1 = str(max(key[0], key[1]))
+            w = k_0 + " " + k_1 + " " + str(value) + "\n"
         f.write(w)
     f.close()
 

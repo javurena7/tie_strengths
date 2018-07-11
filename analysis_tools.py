@@ -48,14 +48,23 @@ def write_sorted_edges_from_dic(dic, output_path, reverse=True):
         f.write(e)
     f.close()
 
-def net_overlap(net, return_net=False):
-    if not return_net:
-        dic = {}
+def net_overlap(net, output_path=None):
+    #if not return_net:
+    #    dic = {}
+    #    for edge in net.edges:
+    #        e0, e1, w = edge
+    #        e0, e1 = np.sort([e0, e1])
+    #        dic[(e0, e1)] = netanalysis.overlap(net, e0, e1)
+    #    return dic
+    if output_path is not None:
+        f = open(output_path, 'w+')
         for edge in net.edges:
-            e0, e1, w = edge
+            e0, e1, _ = edge
             e0, e1 = np.sort([e0, e1])
-            dic[(e0, e1)] = netanalysis.overlap(net, e0, e1)
-        return dic
+            ov = netanalysis.overlap(net, e0, e1)
+            line = [str(e0), str(e1), str(ov)]
+            f.write(' '.join(line) + "\n")
+        f.close()
     else:
         ov_net = pynet.SymmNet()
         for edge in net.edges:

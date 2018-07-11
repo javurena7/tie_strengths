@@ -27,8 +27,9 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
 
 def awk_total_calls(logs_path, output_path):
     main_awk = "{($4 > $2) ? p = $2 FS $4 : p = $4 FS $2; print p}"
-    cmd_list = ["awk", "'", main_awk, "'", logs_path , "| sort | uniq -c >", output_path]
-    subprocess.Popen(' '.join(cmd_list))
+    main_awk_rearrange = "{print $2, $3, $1}"
+    cmd_list = ["awk", "'", main_awk, "'", logs_path , "| sort | uniq -c |", "awk", "'", main_awk_rearrange, "'",">", output_path]
+    subprocess.Popen(' '.join(cmd_list), shell=True)
 
 
 def total_calls_times(times_path, output_path):
@@ -71,16 +72,21 @@ def awk_times(logs_path, output_path):
 
     tmp_file = "tmp_times_file.txt"
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
-    main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1: p = $4 FS $2 FS $1; print p}"
+    main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 : p = $4 FS $2 FS $1; print p}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]
-    subprocess.Popen(cmd_list, shell=True)
+    print(' '.join(cmd_list))
+    subprocess.Popen(' '.join(cmd_list), shell=True)
 
     # Next, use awk to obtain a file with id_1, id_2 followed by a list of timestamps
     main_awk = "{if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3; else a[$1 FS $2] = $3;} END {for (i in a) print i, a[i];}"
-    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
-    #subprocess.Popen(' '.join(cmd_list), shell=True)
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path, '& rm', tmp_file]
+    subprocess.Popen(' '.join(cmd_list), shell=True)
 
-    # Remove temporal file
+def awk_total_calls_from_times(times_path, output_path):
+    main_awk = "{print $1, $2, NF-2}"
+    cmd_list = ["awk", "'", main_awk, "'", times_path, ">", output_path]
+    subprocess.Popen(' '.join(cmd_list), shell=True)
+
 
 def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None):
     """
@@ -147,7 +153,7 @@ def _recip(key, v0, val):
 
 def read_edgelist(path):
 
-    net = netio.pynet.SymmNet()
+    net = netio.pynet.DictSymmNet()
     with open(path, 'r') as r:
         row = r.readline()
         while row:
