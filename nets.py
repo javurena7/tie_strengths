@@ -83,8 +83,17 @@ def awk_times(logs_path, output_path):
     subprocess.Popen(' '.join(cmd_list), shell=True)
 
 def awk_total_calls_from_times(times_path, output_path):
+
     main_awk = "{print $1, $2, NF-2}"
     cmd_list = ["awk", "'", main_awk, "'", times_path, ">", output_path]
+    subprocess.Popen(' '.join(cmd_list), shell=True)
+
+def awk_filter_extended_net(net_path, extended_net_path, output_path):
+    """
+    Filter extended_net_path so that only elements in net_path are included.
+    """
+    main_awk = "FNR==NR{a[$1 FS $2]=1;next;}{if (a[$1 FS $2]) print}"
+    cmd_list = ["awk", "'", main_awk, "'", net_path, extended_net_path, ">", output_path]
     subprocess.Popen(' '.join(cmd_list), shell=True)
 
 
@@ -157,8 +166,9 @@ def read_edgelist(path):
     with open(path, 'r') as r:
         row = r.readline()
         while row:
+
             rs = row.split(' ')
-            net[int(rs[0]), int(rs[1])] = rs[2]
+            net[int(rs[0]), int(rs[1])] = np.float32(rs[2])
             row = r.readline()
 
     return net

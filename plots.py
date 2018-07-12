@@ -120,19 +120,34 @@ def log_bin_plot(x, y, factor=1.82, col=None, fig=None, ax=None, xlabel=r'$\bar{
     return fig, ax
 
 
-def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle$', title='Overlap as a function of Burstiness'):
+def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle$', title='Overlap as a function of Burstiness', fig=None, ax=None):
     """
     Used for burstiness VS overlap
     """
     bins = binner.Bins(float, int(min(x)), max(x), 'lin', x_bins)
     bin_means, _, _ = binned_statistic(x, y, bins=bins.bin_limits)
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    if not fig:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
     ax.plot(bins.centers, bin_means)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     return fig, ax
+
+def plot_overlap_weight_difference(weight_1, overlap_1, weight_2, overlap_2):
+    fig, ax = plots.log_bin_plot(weight_1, overlap_2, xlabel=r'$W$', ylabel=r'$\langle O | W \rangle$', title="Overlap as a fucnction of Number \n of calls", label='Company')
+    fig, ax = plots.log_bin_plot(weight_2, overlap_2, fig=fig, ax=ax, label='All')
+
+
+def plot_overlap_difference(simple, extended, bins=35):
+    """
+    used for plotting overlap calculated with the company set (set 2) vs company plus other users (set 5)
+    """
+    fig, ax = lin_bin_plot(simple, extended, bins, ylabel=r'$\langle O_{all} | O_{company} \rangle$', title='Overlap for all users VS overlap \n of company users', xlabel=r'$ O_{company}$')
+    ax.plot(simple, extended, '.c', alpha=0.03)
+    return fig, ax
+
 
 
 def loglogheatmap(x, y, z, factor_x=1.5, factor_y=1.45, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$\bar{\tau}$ (days)', title='Overlap as a function of and Number of Calls and Inter-event Time\n' + r'$\langle O | w, \bar{\tau} \rangle$'):

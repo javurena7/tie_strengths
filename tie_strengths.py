@@ -107,7 +107,7 @@ class TieStrengths(object):
 
         self._reciprocity()
 
-        self._join_stats()
+        #self._join_stats()
 
     def _join_stats(self):
         stats_paths = {x: y for x, y in self.paths.items() if y.endswith('.edg')}

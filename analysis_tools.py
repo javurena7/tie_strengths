@@ -193,5 +193,3 @@ def get_age_difference(edges, dic_path='../data/mobile_network/canarias/canarias
     return age_diffs
 
 
-
-
