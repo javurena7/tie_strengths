@@ -3,9 +3,11 @@ import analysis_tools as at
 import numpy as np
 import pandas as pd
 import plots
+import dask.dataframe as dd
 from pandas import read_pickle
 from pickle import dump as dump_pickle
 from scipy.stats import rankdata
+from sklearn.ensemble import RandomForestRegressor
 from itertools import chain, combinations, product
 from verkko.binner import bins as binner
 from scipy.stats import binned_statistic_dd
@@ -15,7 +17,7 @@ import yaml
 
 
 class TieStrengths(object):
-    def __init__(self, logs_path, run_path, kaplan=True, extended_log_path=None, delta=3600):
+    def __init__(self, logs_path, run_path, kaplan=True, extended_logs_path=None, delta=3600):
         if not os.path.exists(run_path):
             os.makedirs(run_path)
         self.analysis = {}
@@ -30,8 +32,8 @@ class TieStrengths(object):
             awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
             #total_calls_times(self.paths['times_dict'], self.paths['net'])
 
-        if extended_log_path is not None:
-            self.paths['extended_logs'] = os.path.join(extended_log_path)
+        if extended_logs_path is not None:
+            self.paths['extended_logs'] = os.path.join(extended_logs_path)
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             if not os.path.isfile(self.paths['extended_net']):
@@ -105,25 +107,21 @@ class TieStrengths(object):
 
         self._bursty_trains()
 
-        self._reciprocity()
+        #self._reciprocity()
 
         #self._join_stats()
 
-    def _join_stats(self):
+    def _join_stats(self, output_path):
         stats_paths = {x: y for x, y in self.paths.items() if y.endswith('.edg')}
         net_path = stats_paths.pop('net')
-        net = read_edgedic(net_path)
-        vrbs = ['n_calls']
+        if 'extended_net' in stats_paths:
+            stats_paths.pop('extended_net')
+        ddf = dd.read_table(net_path, sep=' ', names=['0', '1', 'calls'])
         for var, path in stats_paths.iteritems():
-            vrbs.append(var)
-            stat = read_edgedic(path)
-            for k, v in net.iteritems():
-                try:
-                    v.append(stat[k][0])
-                except KeyError:
-                    v.append(np.nan)
-
-        self.df = pd.DataFrame(net.values(), columns=vrbs)
+            dd_h = dd.read_table(path, sep=' ', names=['0', '1', var])
+            ddf = dd.merge(ddf, dd_h, on=['0', '1'])
+            ddf.compute()
+        ddf.to_csv(output_path, sep=' ', index=False)
 
 
     def powerset(self, x):
@@ -219,6 +217,7 @@ class TieStrengths(object):
 
         return bins, bin_means
 
+
     def _transform_x(self, i, centers, shape):
         if i == 0:
             rep = 1
@@ -275,6 +274,21 @@ class TieStrengths(object):
                     scores.append(np.nan)
             self._write_scores(scores, n_row, comb, transfs, outputfile)
 
+########## new part: random forest
+
 
 if __name__=="__main__":
+    from sklearn.model_selection import train_test_split
+    from sklearn.ensemble import RandomForestRegressor
+
     logs_path = '../data/mobile_network/canarias/canarias_call_newid_log.txt'
+    df = pd.read_csv('data/run/all_stats.csv', sep=' ')
+    df = df.drop_na()
+    del df['0']
+    del df['1']
+    y = df['overlap']
+    del df['overlap']
+    rf = RandomForestRegressor()
+    x_train, x_test, y_train, y_test = train_test_split(df, y, test_size=0.5)
+    rf.fit(x_train, y_train)
+    y_pred = rf.predict(x_test)
