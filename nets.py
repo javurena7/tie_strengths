@@ -4,7 +4,7 @@ from netpython import *
 import datetime as dt
 import subprocess
 import scipy.integrate as sinteg
-from iet import events
+#from iet import events
 from verkko.binner.binhelp import *
 from scipy.stats import mode
 import utils
@@ -27,7 +27,7 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
     return  net
 
 def awk_total_calls(logs_path, output_path):
-    main_awk = "{($4 > $2) ? p = $2 FS $4 : p = $4 FS $2; print p}"
+    main_awk = "{($5 > $3) ? p = $3 FS $5 : p = $5 FS $3; print p}"
     main_awk_rearrange = "{if($2 != $3) print $2, $3, $1}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path , "| sort | uniq -c |", "awk", "'", main_awk_rearrange, "'",">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
@@ -64,14 +64,14 @@ def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
             row = r.readline()
     return net
 
-def awk_times(logs_path, output_path):
+def awk_times(logs_path, output_path, run_path):
     """
     Use awk to obtain a file with call timestamps in the format:
         id_1 id_2 ts_1 ts_2 ... ts_n
     where id_1 is the min id of the edge, and id_2 is the max id of the edge, and ts_i is the timestamp for the i-th call between id_1 and id_2
     """
 
-    tmp_file = "tmp_times_file.txt"
+    tmp_file = os.path.join(run_path, "tmp_times_file.txt")
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
     main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 : p = $4 FS $2 FS $1; print p}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]

@@ -24,7 +24,7 @@ class TieStrengths(object):
         self.paths['logs'] = logs_path
         if not os.path.isfile(self.paths['times_dict']):
             print('Creating time dictionary... \n')
-            awk_times(self.paths['logs'], self.paths['times_dict'])
+            awk_times(self.paths['logs'], self.paths['times_dict'], run_path)
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
             print('Creating net... \n')
