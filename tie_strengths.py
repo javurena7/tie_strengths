@@ -3,7 +3,6 @@ import analysis_tools as at
 import numpy as np
 import pandas as pd
 import plots
-import dask.dataframe as dd
 from pandas import read_pickle
 from pickle import dump as dump_pickle
 from scipy.stats import rankdata
@@ -39,7 +38,7 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 print('Creating extended net... \n')
-            awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
+            #awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
             if not os.path.isfile(self.paths['overlap']):
                 print('Obtaining net overlap... \n')
                 print('\t Reading edges... \n')
@@ -84,9 +83,10 @@ class TieStrengths(object):
             net_calltimes_mode(self.paths['times_dict'], self.paths['calltimes'])
 
     def _reciprocity(self):
-        self.paths['reciprocity'] = os.path.join(self.run_path, 'reciprocity.edg')
-        if not os.path.isfile(self.paths['reciprocity']):
-            reciprocity(self.paths['logs'], self.paths['reciprocity'])
+        self.paths['reciprocity_1'] = os.path.join(self.run_path, 'reciprocity.edg')
+        self.paths['reciprocity_2'] = os.path.join(self.run_path, 'reciprocity_2.edg')
+        if not os.path.isfile(self.paths['reciprocity_1']):
+            reciprocity(self.paths['logs'], self.paths['reciprocity_1'], self.paths['reciprocity_2'])
 
     def _bursty_trains(self):
         self.paths['trains'] = os.path.join(self.run_path, 'bursty_trains.edg')
@@ -107,7 +107,7 @@ class TieStrengths(object):
 
         self._bursty_trains()
 
-        #self._reciprocity()
+        self._reciprocity()
 
         #self._join_stats()
 
@@ -116,11 +116,10 @@ class TieStrengths(object):
         net_path = stats_paths.pop('net')
         if 'extended_net' in stats_paths:
             stats_paths.pop('extended_net')
-        ddf = dd.read_table(net_path, sep=' ', names=['0', '1', 'calls'])
+        ddf = pd.read_table(net_path, sep=' ', names=['0', '1', 'calls'])
         for var, path in stats_paths.iteritems():
-            dd_h = dd.read_table(path, sep=' ', names=['0', '1', var])
-            ddf = dd.merge(ddf, dd_h, on=['0', '1'])
-            ddf.compute()
+            dd_h = pd.read_table(path, sep=' ', names=['0', '1', var])
+            ddf = pd.merge(ddf, dd_h, on=['0', '1'])
         ddf.to_csv(output_path, sep=' ', index=False)
 
 

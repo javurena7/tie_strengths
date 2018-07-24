@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 from netpython import *
 import datetime as dt
@@ -27,10 +28,10 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
 
 def awk_total_calls(logs_path, output_path):
     main_awk = "{($4 > $2) ? p = $2 FS $4 : p = $4 FS $2; print p}"
-    main_awk_rearrange = "{print $2, $3, $1}"
+    main_awk_rearrange = "{if($2 != $3) print $2, $3, $1}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path , "| sort | uniq -c |", "awk", "'", main_awk_rearrange, "'",">", output_path]
-    subprocess.Popen(' '.join(cmd_list), shell=True)
-
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
 
 def total_calls_times(times_path, output_path):
     """
@@ -75,18 +76,30 @@ def awk_times(logs_path, output_path):
     main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 : p = $4 FS $2 FS $1; print p}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]
     print(' '.join(cmd_list))
-    subprocess.Popen(' '.join(cmd_list), shell=True)
+    p1 = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p1.wait()
+
+    main_awk = "{if ($1 != $2) print}"
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", "add_" + tmp_file, "&& mv", "add_" + tmp_file, tmp_file]
+    p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p2.wait()
 
     # Next, use awk to obtain a file with id_1, id_2 followed by a list of timestamps
     main_awk = "{if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3; else a[$1 FS $2] = $3;} END {for (i in a) print i, a[i];}"
-    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path, '& rm', tmp_file]
-    subprocess.Popen(' '.join(cmd_list), shell=True)
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
+    p3 = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p3.wait()
+
+    cmd_list = ["rm", tmp_file]
+    p4 = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p4.wait()
 
 def awk_total_calls_from_times(times_path, output_path):
 
     main_awk = "{print $1, $2, NF-2}"
     cmd_list = ["awk", "'", main_awk, "'", times_path, ">", output_path]
-    subprocess.Popen(' '.join(cmd_list), shell=True)
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
 
 def awk_filter_extended_net(net_path, extended_net_path, output_path):
     """
@@ -94,8 +107,8 @@ def awk_filter_extended_net(net_path, extended_net_path, output_path):
     """
     main_awk = "FNR==NR{a[$1 FS $2]=1;next;}{if (a[$1 FS $2]) print}"
     cmd_list = ["awk", "'", main_awk, "'", net_path, extended_net_path, ">", output_path]
-    subprocess.Popen(' '.join(cmd_list), shell=True)
-
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
 
 def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None):
     """
@@ -127,7 +140,7 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
     return dic
 
 
-def reciprocity(logs_path=logs_path, output_path=None, id_cols=(1, 3)):
+def reciprocity(logs_path=logs_path, output_path_1=None, output_path_2=None, id_cols=(1, 3)):
     """
     Reciprocity: ratio of how it is for one node to call the other (0 implies equal number of calls, 1 implies all calls are placed by one node)
     """
@@ -144,9 +157,11 @@ def reciprocity(logs_path=logs_path, output_path=None, id_cols=(1, 3)):
                 dic[key] = _recip(key, v0, [0, 0])
             row = r.readline()
 
-    dic = {key: np.abs(float(val[0]))/val[1] for key, val in dic.iteritems()}
-    if output_path:
-        utils.write_dic(dic, output_path)
+    dic_2 = {key: max(val)/float(sum(val)) for key, val in dic.iteritems()}
+    dic = {key: np.sqrt((val[0]*val[1])/float(sum(val)**2)) for key, val in dic.iteritems()}
+    if output_path_1:
+        utils.write_dic(dic, output_path_1)
+        utils.write_dic(dic_2, output_path_2)
     else:
         return dic
 
@@ -155,9 +170,7 @@ def _recip(key, v0, val):
     if key[0] == v0:
         val[0] += 1
     else:
-        val[0] -= 1
-    val[1] += 1
-
+        val[1] += 1
     return val
 
 def read_edgelist(path):
@@ -269,9 +282,9 @@ def km_burstiness(x, method='km', max_date=1177970399.):
     """
     estimator = events.IntereventTimeEstimator(max_date, mode='censorall')
     estimator.add_time_seq(x)
-    m = max(estimator.observed_iets)
-    estimator.forward_censored_iets[m] = 1
-    estimator.backward_censored_iets[m] = 1
+    #m = max(estimator.observed_iets)
+    #estimator.forward_censored_iets[m] = 1
+    #estimator.backward_censored_iets[m] = 1
     mu = estimator.estimate_moment(1, method)
     sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
     return (sigma - mu)/(sigma + mu)
@@ -302,6 +315,43 @@ def net_residual_times(dic=None, path=times_path, output_path='', kaplan='naive'
                     f.write(s)
                 row = r.readline()
         f.close()
+
+#### TODO: move, function to check differences between km and naive
+def analyze_km(times_path, output_path=''):
+    f = open(output_path, 'wb')
+    f.write('0 1 calls mu_na_nomin va_na_nomin bu_na_nomin mu_na_min va_na_min bu_na_min mu_km_nomin va_km_nomin bu_km_nomin mu_km_min va_km_min bu_km_min\n')
+    with open(times_path, 'r') as r:
+        row = r.readline()
+        while row:
+            n1, n2, times = utils.parse_time_line(row)
+            if len(times) > 1:
+                s = '{} {} {} '.format(n1, n2, len(times))
+                m, v, b = _km_versions(times, 'naive', None)
+                s += '{} {} {} '.format(m, v, b)
+                try:
+                    m, v, b = _km_versions(times, 'naive')
+                except:
+                    import pdb; pdb.set_trace()
+                s += '{} {} {} '.format(m, v, b)
+                m, v, b = _km_versions(times, 'km', None)
+                s += '{} {} {} '.format(m, v, b)
+                m, v, b = _km_versions(times, 'km')
+                s += '{} {} {}\n'.format(m, v, b)
+                f.write(s)
+            row = r.readline()
+    f.close()
+
+def _km_versions(x, method, min_date=1167598799, max_date=1177970399.0):
+    estimator = events.IntereventTimeEstimator(max_date, mode='censorall')
+    if min_date is not None:
+        x.insert(0, min_date)
+    estimator.add_time_seq(x)
+    mu = estimator.estimate_moment(1, method)
+    var = estimator.estimate_moment(2, method)
+    sigma = np.sqrt(var - mu**2)
+    burst = (sigma - mu)/(sigma + mu)
+    return round(mu, 2), round(var, 2), round(burst, 4)
+
 
 def net_burstiness(path=times_path, output_path='', kaplan='naive'):
     """
