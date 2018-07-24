@@ -8,6 +8,7 @@ import scipy.integrate as sinteg
 from verkko.binner.binhelp import *
 from scipy.stats import mode
 import utils
+import os
 
 logs_path = '../data/mobile_network/madrid/madrid_call_newid_log.txt'
 times_path = 'run/madrid_2504/times_dic.txt'
@@ -72,6 +73,7 @@ def awk_times(logs_path, output_path, run_path):
     """
 
     tmp_file = os.path.join(run_path, "tmp_times_file.txt")
+    add_tmp_file = os.path.join(run_path, "add_tmp_times_file.txt")
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
     main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 : p = $4 FS $2 FS $1; print p}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]
@@ -80,7 +82,7 @@ def awk_times(logs_path, output_path, run_path):
     p1.wait()
 
     main_awk = "{if ($1 != $2) print}"
-    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", "add_" + tmp_file, "&& mv", "add_" + tmp_file, tmp_file]
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", add_tmp_file, "&& mv", add_tmp_file, tmp_file]
     p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
     p2.wait()
 
