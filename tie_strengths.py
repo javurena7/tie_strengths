@@ -15,6 +15,10 @@ import os
 import yaml
 
 
+def write_logs(msg, path):
+    with f as open(path, 'a'):
+        f.write(msg)
+
 class TieStrengths(object):
     def __init__(self, logs_path, run_path, kaplan=True, extended_logs_path=None, delta=3600):
         if not os.path.exists(run_path):
@@ -22,6 +26,9 @@ class TieStrengths(object):
         self.analysis = {}
         self.paths = {'times_dict': os.path.join(run_path, 'times_dic.txt')}
         self.paths['logs'] = logs_path
+        self.paths['status'] = os.path.join(run_path, 'status.txt')
+	with open(self.paths['status'], 'wb') as f:
+            f.write('Initial message \n')
         if not os.path.isfile(self.paths['times_dict']):
             print('Creating time dictionary... \n')
             awk_times(self.paths['logs'], self.paths['times_dict'], run_path)
@@ -37,16 +44,15 @@ class TieStrengths(object):
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
-                print('Creating extended net... \n')
+                write_logs('Creating extended net... \n', self.paths['status'])
             #awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
             if not os.path.isfile(self.paths['overlap']):
-                print('Obtaining net overlap... \n')
-                print('\t Reading edges... \n')
-                net_ext = read_edgelist(self.paths['extended_net']) #netio.loadNet(self.paths['extended_net'])
-                print('\t Calculating overlap... \n')
-                overlap = at.net_overlap(net_ext, output_path=self.paths['overlap'])
-                utils.write_dic(overlap, self.paths['overlap'])
-                print('\t Done. \n')
+                write_logs('Obtaining net overlap... \n', self.paths['extended_net'])
+                write_logs('\t Reading edges... \n', self.paths['extended_net'])
+                net_ext = netio.loadNet(self.paths['extended_net']) #read_edgelist(self.paths['extended_net']) 
+                write_logs('\t Calculating overlap... \n', self.paths['extended_net'])
+                at.net_overlap(net_ext, output_path=self.paths['overlap'])
+                write_logs('\t Done. \n', self.paths['extended_net'])
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
             if not os.path.isfile(self.paths['overlap']):
