@@ -42,9 +42,9 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['overlap']):
                 print('Obtaining net overlap... \n')
                 print('\t Reading edges... \n')
-                net_ext = netio.loadNet(self.paths['extended_net']) #read_edgelist(self.paths['extended_net'])
+                net_ext = read_edgelist(self.paths['extended_net']) #netio.loadNet(self.paths['extended_net'])
                 print('\t Calculating overlap... \n')
-                overlap = at.get_weight_overlap(net_ext)
+                overlap = at.net_overlap(net_ext, output_path=self.paths['overlap'])
                 utils.write_dic(overlap, self.paths['overlap'])
                 print('\t Done. \n')
         else:

@@ -61,7 +61,7 @@ def net_overlap(net, output_path=None):
         for edge in net.edges:
             e0, e1, _ = edge
             e0, e1 = np.sort([e0, e1])
-            ov = netanalysis.overlap(net, e0, e1)
+            ov = round(netanalysis.overlap(net, e0, e1), 4)
             line = [str(e0), str(e1), str(ov)]
             f.write(' '.join(line) + "\n")
         f.close()
