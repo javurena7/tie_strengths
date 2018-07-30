@@ -64,7 +64,7 @@ def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
             row = r.readline()
     return net
 
-def awk_times(logs_path, output_path, run_path):
+def awk_tmp_times(logs_path, tmp_file, run_path):
     """
     Use awk to obtain a file with call timestamps in the format:
         id_1 id_2 ts_1 ts_2 ... ts_n
@@ -74,7 +74,7 @@ def awk_times(logs_path, output_path, run_path):
     tmp_file = os.path.join(run_path, "tmp_times_file.txt")
     add_tmp_file = os.path.join(run_path, "add_tmp_times_file.txt")
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
-    main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 : p = $4 FS $2 FS $1; print p}"
+    main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 FS $3 FS $5: p = $4 FS $2 FS $1 FS $3 FS $5; print p}"
     cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]
     print(' '.join(cmd_list))
     p1 = subprocess.Popen(' '.join(cmd_list), shell=True)
@@ -85,15 +85,33 @@ def awk_times(logs_path, output_path, run_path):
     p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
     p2.wait()
 
+
+def awk_full_times(tmp_file, output_path)
     # Next, use awk to obtain a file with id_1, id_2 followed by a list of timestamps
     main_awk = "{if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3; else a[$1 FS $2] = $3;} END {for (i in a) print i, a[i];}"
     cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
-    p3 = subprocess.Popen(' '.join(cmd_list), shell=True)
-    p3.wait()
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
 
     cmd_list = ["rm", tmp_file]
-    p4 = subprocess.Popen(' '.join(cmd_list), shell=True)
-    p4.wait()
+    p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p2.wait()
+
+def awk_sms(tmp_file, output_path):
+
+    main_awk = "{if($4 == 5) {if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3; else a[$1 FS $2] = $3;}} END {for (i in a) print i, a[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
+
+
+def awk_calls(tmp_file, output_path):
+
+    main_awk = "{if ($4 == 2) {if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3 FS $5; else a[$1 FS $2] = $3 FS $5;}} END {for (i in a) print i, a[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
+
 
 def awk_total_calls_from_times(times_path, output_path):
 

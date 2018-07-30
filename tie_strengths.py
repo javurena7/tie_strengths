@@ -24,21 +24,29 @@ class TieStrengths(object):
         if not os.path.exists(run_path):
             os.makedirs(run_path)
         self.analysis = {}
-        self.paths = {'times_dict': os.path.join(run_path, 'times_dic.txt')}
+        self.paths = {'full_times_dict': os.path.join(run_path, 'times_dic.txt')}
+        tmp_file = os.path.join(run_path, 'tmp_file.txt')
+        self.paths['call_times'] = os.path.join(run_path, 'call_times.txt')
+        self.paths['sms_times'] = os.path.join(run_path, 'sms_times.txt')
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
 	with open(self.paths['status'], 'wb') as f:
             f.write('running on ' + run_path + ' \n')
         write_logs('-------------\n', self.paths['status'])
-        if not os.path.isfile(self.paths['times_dict']):
+        if not all([os.path.isfile(self.paths['times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
+            awk_tmp_times(self.paths['logs'], tmp_file, run_path)
+        if not os.path.isfile(self.paths['full_times_dict']):
             print('Creating time dictionary... \n')
-            awk_times(self.paths['logs'], self.paths['times_dict'], run_path)
+            awk_full_times(self.paths['logs'], self.paths['times_dict'], run_path)
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
             print('Creating net... \n')
             awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
-            #total_calls_times(self.paths['times_dict'], self.paths['net'])
-
+        if not os.path.isfile(self.paths['call_times']):
+            awk_calls(tmp_file, self.paths['call_times'])
+        if not os.path.isfile(self.paths['sms_times']):
+            awk_sms(tmp_file, self.paths['sms_times'])
+       # remove temporal file
         if extended_logs_path is not None:
             self.paths['extended_logs'] = os.path.join(extended_logs_path)
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
@@ -50,7 +58,7 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['overlap']):
                 write_logs('Obtaining net overlap... \n', self.paths['status'])
                 write_logs('\t Reading edges... \n', self.paths['status'])
-                net_ext = read_edgelist(self.paths['extended_net'])  #netio.loadNet(self.paths['extended_net']) 
+                net_ext = read_edgelist(self.paths['extended_net'])  #netio.loadNet(self.paths['extended_net'])
                 write_logs('\t Calculating overlap... \n', self.paths['status'])
                 at.net_overlap(net_ext, output_path=self.paths['overlap'], alt_net_path=self.paths['net'])
                 write_logs('\t Done. \n', self.paths['status'])
@@ -82,7 +90,6 @@ class TieStrengths(object):
         self.paths[path_key] = os.path.join(self.run_path, path)
         if not os.path.isfile(self.paths[path_key]):
             net_residual_times(path=self.paths['times_dict'], output_path=self.paths[path_key], kaplan=kaplan)
-
 
     def _calltimes_mode(self):
         self.paths['calltimes'] = os.path.join(self.run_path, 'calltimes.edg')

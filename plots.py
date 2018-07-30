@@ -120,7 +120,7 @@ def log_bin_plot(x, y, factor=1.82, col=None, fig=None, ax=None, xlabel=r'$\bar{
     return fig, ax
 
 
-def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle$', title='Overlap as a function of Burstiness', fig=None, ax=None):
+def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle$', title='Overlap as a function of Burstiness', fig=None, ax=None, label=None, arg='-'):
     """
     Used for burstiness VS overlap
     """
@@ -129,7 +129,7 @@ def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle
     if not fig:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    ax.plot(bins.centers, bin_means)
+    ax.plot(bins.centers, bin_means, arg, label=label)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
