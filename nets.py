@@ -192,14 +192,14 @@ def read_edgelist(path):
 def number_of_bursty_trains(x, delta):
     if len(x) > 1:
         t = 0.0
-        e = 0.0
+        e = 1
         for t0, t1 in zip(x[:-1], x[1:]):
             t += t1 - t0
             if t > delta:
                 t = 0.0
                 e += 1
         return e
-    return 1.0
+    return 1
 
 
 def read_timesdic(path):
