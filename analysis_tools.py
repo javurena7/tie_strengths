@@ -48,7 +48,7 @@ def write_sorted_edges_from_dic(dic, output_path, reverse=True):
         f.write(e)
     f.close()
 
-def net_overlap(net, output_path=None):
+def net_overlap(net, output_path=None, alt_net_path=None):
     #if not return_net:
     #    dic = {}
     #    for edge in net.edges:
@@ -58,12 +58,27 @@ def net_overlap(net, output_path=None):
     #    return dic
     if output_path is not None:
         f = open(output_path, 'w+')
-        for edge in net.edges:
-            e0, e1, _ = edge
-            e0, e1 = np.sort([e0, e1])
-            ov = round(netanalysis.overlap(net, e0, e1), 4)
-            line = [str(e0), str(e1), str(ov)]
-            f.write(' '.join(line) + "\n")
+        if alt_net_path is not None:
+            r = open(alt_net_path, 'r')
+            row = r.readline()
+            while row:
+                e0, e1, _ = utils.parse_time_line(row)
+                e0, e1 = np.sort([int(e0), int(e1)])
+                try:
+                     ov = round(netanalysis.overlap(net, e0, e1), 4)
+		except:
+                     ov = 0.0
+                line = [str(e0), str(e1), str(ov)]
+                f.write(' '.join(line) + "\n")
+                row = r.readline()
+            r.close()
+        else:
+            for edge in net.edges:
+                e0, e1, _ = edge
+                e0, e1 = np.sort([e0, e1])
+                ov = round(netanalysis.overlap(net, e0, e1), 4)
+                line = [str(e0), str(e1), str(ov)]
+                f.write(' '.join(line) + "\n")
         f.close()
     else:
         ov_net = pynet.SymmNet()
@@ -74,6 +89,7 @@ def net_overlap(net, output_path=None):
             if o > 0:
                 ov_net[e_0, e_1] = o
         return ov_net
+    return True
 
 
 def dics_to_lists(dic_list):

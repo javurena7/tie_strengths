@@ -4,7 +4,7 @@ from netpython import *
 import datetime as dt
 import subprocess
 import scipy.integrate as sinteg
-#from iet import events
+from iet import events
 from verkko.binner.binhelp import *
 from scipy.stats import mode
 import utils
@@ -43,7 +43,6 @@ def total_calls_times(times_path, output_path):
     with open(times_path, 'r') as r:
         row = r.readline()
         while row:
-            row = r.readline()
             n1, n2, times = utils.parse_time_line(row)
             f = ' '.join(n1, n2, str(len(times)))
             w.write(f)
