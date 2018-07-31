@@ -23,30 +23,40 @@ class TieStrengths(object):
     def __init__(self, logs_path, run_path, kaplan=True, extended_logs_path=None, delta=3600):
         if not os.path.exists(run_path):
             os.makedirs(run_path)
+
         self.analysis = {}
-        self.paths = {'full_times_dict': os.path.join(run_path, 'times_dic.txt')}
         tmp_file = os.path.join(run_path, 'tmp_file.txt')
+        self.paths = {'full_times_dict': os.path.join(run_path, 'times_dic.txt')}
         self.paths['call_times'] = os.path.join(run_path, 'call_times.txt')
         self.paths['sms_times'] = os.path.join(run_path, 'sms_times.txt')
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
-	with open(self.paths['status'], 'wb') as f:
+        self.first_date, self.last_date = get_dates(self.paths['logs'])
+        with open(self.paths['status'], 'wb') as f:
             f.write('running on ' + run_path + ' \n')
         write_logs('-------------\n', self.paths['status'])
-        if not all([os.path.isfile(self.paths['times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
+
+        rm = False
+        if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
             awk_tmp_times(self.paths['logs'], tmp_file, run_path)
+            rm = True
         if not os.path.isfile(self.paths['full_times_dict']):
-            print('Creating time dictionary... \n')
-            awk_full_times(self.paths['logs'], self.paths['times_dict'], run_path)
+            print('Creating call and sms times dictionary... \n')
+            awk_full_times(tmp_file, self.paths['full_times_dict'])
+        if not os.path.isfile(self.paths['call_times']):
+            print('Creating calls dictionary...\n')
+            awk_calls(tmp_file, self.paths['call_times'])
+        if not os.path.isfile(self.paths['sms_times']):
+            print('Creating sms dictionary...\n')
+            awk_sms(tmp_file, self.paths['sms_times'])
+        if rm:
+            remove_tmp(tmp_file)
+
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
             print('Creating net... \n')
-            awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
-        if not os.path.isfile(self.paths['call_times']):
-            awk_calls(tmp_file, self.paths['call_times'])
-        if not os.path.isfile(self.paths['sms_times']):
-            awk_sms(tmp_file, self.paths['sms_times'])
-       # remove temporal file
+            awk_total_calls_from_times(self.paths['full_times_dict'], self.paths['net'])
+
         if extended_logs_path is not None:
             self.paths['extended_logs'] = os.path.join(extended_logs_path)
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
@@ -66,8 +76,7 @@ class TieStrengths(object):
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
-                overlap = at.get_weight_overlap(net)
-                utils.write_dic(overlap, self.paths['overlap'])
+                at.net_overlap(net, output_path=self.paths['overlap'])
 
         self.run_path = run_path
         self.delta = delta

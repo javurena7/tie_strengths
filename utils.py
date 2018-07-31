@@ -144,11 +144,17 @@ def reorder_commas(x):
     l = [s.strip() for s in l]
     return ' '.join(l)
 
-def parse_time_line(x):
+def parse_time_line(x, extra_information=False):
+    # extra_information separates info
     x = x.split(' ')
     n1, n2 = x[:2]
-    times = [int(r) for r in x[2:]]
-    return n1, n2, times
+    if extra_information:
+        times = [int(r) for r in x[2::2]]
+        extra = [int(r) for r in x[3::2]]
+        return n1, n2, times, extra
+    else:
+        times = [int(r) for r in x[2:]]
+        return n1, n2, times
 
 def subset_edges(net, locs):
     i = 0
