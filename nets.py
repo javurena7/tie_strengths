@@ -128,7 +128,6 @@ def remove_tmp(tmp_file):
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
-
 def awk_total_calls_from_times(times_path, output_path):
 
     main_awk = "{print $1, $2, NF-2}"
@@ -176,6 +175,28 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
 
 
 def weekday_call_stats(x, extra_information=None):
+    """
+    Function for obtaining the proportion of calls/sms according to day of the week and time.
+    x: list of timestamps
+    extra_information: weight associated to each timestamp
+
+    returns:
+        lv: portion of calls for
+            - monday to thursday: morning (0 to 6)
+            - monday to thursday: daytime (7 to 15)
+            - monday to thursday: evening (16 to 24)
+            - friday morning (0 to 6)
+            - friday daytime (7 to 15)
+            - friday evening (16 to 23)
+            - saturday morning (0 to 8)
+            - saturday daytime (9 to 15)
+            - saturday evening (16 to 23)
+            - sunday morning (0 to 8)
+            - sunday afternoon (9 to 15)
+            - sunday evening (16 to 23)
+            - total calls
+        wv: proportion of weight, as in lv
+    """
     dates = [dt.datetime.fromtimestamp(d) for d in x]
     if extra_information is None:
         extra_information = [0] * len(x)
@@ -183,14 +204,22 @@ def weekday_call_stats(x, extra_information=None):
     wv = [0] * 12
     for date, extra in zip(dates, extra_information):
         w, h = date.weekday(), date.hour
-        if w < 4:
+        if w < 4: #monday to thursday
             _classify_weekday(h, lv, wv, extra, [7, 16], [0, 1, 2])
-        elif w == 4:
+        elif w == 4: #friday
             _classify_weekday(h, lv, wv, extra, [7, 16], [3, 4, 5])
-        elif w == 5:
+        elif w == 5: #saturday
             _classify_weekday(h, lv, wv, extra, [8, 16], [6, 7, 8])
-        elif w == 6:
+        elif w == 6: #sunday
             _classify_weekday(h, lv, wv, extra, [8, 16], [9, 10, 11])
+
+    t_lv = sum(lv)
+    t_wv = sum(wv)
+    lv = [round(float(t)/t_lv, 4) for t in lv]
+    if t_wv > 0:
+        wv = [round(float(t)/t_wv, 4) for t in wv]
+    lv.append(t_lv); wv.append(t_wv)
+
     return lv, wv
 
 def _classify_weekday(h, lv, wv, extra, bins, idx):
@@ -203,6 +232,19 @@ def _classify_weekday(h, lv, wv, extra, bins, idx):
     else:
         lv[idx[2]] += 1
         wv[idx[2]] += extra
+
+def uniform_time_statistics(times, start, end, weights=None):
+    """
+    Obtains statistics to see how uniform the calls/sms
+    """
+    t_d = float(end - start)
+    times = np.array([(t-start)/t_d for t in times])
+    mu = np.average(times, weights=weights)
+    s0 = np.average((times - .5)**2, weights=weights)**.5
+    s1 = np.average((times - mu)**2, weights=weights)**.5
+    t = abs(mu-.5)*len(times)**.5/s1
+    return [mu, s1, s0, np.log(t)]
+
 
 def reciprocity(logs_path=logs_path, output_path_1=None, output_path_2=None, id_cols=(1, 3)):
     """
@@ -337,6 +379,22 @@ def km_residual_intervals(x, method='km', max_date=1177970399.):
     estimator.backward_censored_iets[m] = 1
     mu = estimator.estimate_moment(1, method)
     return mu
+
+def inter_event_times(x, end, start=None, method='km'):
+
+    estimator = events.IntereventTimeEstimator(end, mode='censorall')
+    if method=='km' and start not in x:
+        x.append(start)
+    estimator.add_time_seq(x)
+    mu = estimator.estimate_moment(1, method)
+    sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+    try:
+        burst = (sigma - mu)/(sigma + mu)
+    except:
+        burst = np.nan
+    return [mu, sigma, burst]
+
+
 
 def km_burstiness(x, method='km', max_date=1177970399.):
     """

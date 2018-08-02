@@ -32,31 +32,40 @@ class TieStrengths(object):
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
         self.first_date, self.last_date = get_dates(self.paths['logs'])
+
         with open(self.paths['status'], 'wb') as f:
             f.write('running on ' + run_path + ' \n')
         write_logs('-------------\n', self.paths['status'])
 
+#### Create files for temporal data
         rm = False
+        # Create temporal file from logs
         if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
             awk_tmp_times(self.paths['logs'], tmp_file, run_path)
             rm = True
+        # Create file with times of contact for each edge
         if not os.path.isfile(self.paths['full_times_dict']):
             print('Creating call and sms times dictionary... \n')
             awk_full_times(tmp_file, self.paths['full_times_dict'])
+        # Create file with call times and call length for each edge
         if not os.path.isfile(self.paths['call_times']):
             print('Creating calls dictionary...\n')
             awk_calls(tmp_file, self.paths['call_times'])
+        # Create file with sms times for each edge
         if not os.path.isfile(self.paths['sms_times']):
             print('Creating sms dictionary...\n')
             awk_sms(tmp_file, self.paths['sms_times'])
         if rm:
             remove_tmp(tmp_file)
 
+#### Create net files
+        # Create net
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
             print('Creating net... \n')
             awk_total_calls_from_times(self.paths['full_times_dict'], self.paths['net'])
 
+        # Obtain extended overlap
         if extended_logs_path is not None:
             self.paths['extended_logs'] = os.path.join(extended_logs_path)
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
@@ -64,7 +73,6 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Creating extended net... \n', self.paths['status'])
-            #awk_total_calls_from_times(self.paths['times_dict'], self.paths['net'])
             if not os.path.isfile(self.paths['overlap']):
                 write_logs('Obtaining net overlap... \n', self.paths['status'])
                 write_logs('\t Reading edges... \n', self.paths['status'])
@@ -72,6 +80,7 @@ class TieStrengths(object):
                 write_logs('\t Calculating overlap... \n', self.paths['status'])
                 at.net_overlap(net_ext, output_path=self.paths['overlap'], alt_net_path=self.paths['net'])
                 write_logs('\t Done. \n', self.paths['status'])
+        # Obtain basic overlap
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
             if not os.path.isfile(self.paths['overlap']):
@@ -85,6 +94,55 @@ class TieStrengths(object):
         self.cv_columns = []
         self.km_variables = []
 
+    def get_stats(self, mode='call'):
+
+        assert mode in ['call', 'sms'], "mode must be either 'call' or 'sms'"
+        assert os.path.isfile(self.paths[mode + '_times']), mode + '_times file not found'
+        self.paths[mode + '_stats'] = os.path.join(self.run_path, mode + '_stats.txt')
+        w = open(self.paths[mode + '_stats'], 'wb')
+
+        colnames = ['0', '1']
+        week_stats = [mode[0] + '_wkn_' + str(i) for i in range(12)]; week_stats.append(mode[0] + '_wkn_t')
+        colnames.extend(week_stats)
+        if mode == 'call'
+            len_stats = [mode[0] + '_wkl_' + str(i) for i in range(12)]; len_stats.append(mode[0] + '_wkl_l')
+            colnames.extend(len_stats)
+        unif_stats = [mode[0] + '_uts_' + i for i in ['mu', 'sig', 'sig0', 'logt']]
+        colnames.extend(unif_stats)
+        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'mu_km', 'sig_km', 'bur_km']]
+        colnames.extend(iet_names)
+        colnames.append(mode[0] + 'brtrn')
+        with open(self.paths[mode + '_times'], 'r') as r:
+            row = r.readline()
+            while row:
+                if mode=='call':
+                    e0, e1, times, lengths = utils.parse_time_line(row, True)
+                    l = [e0, e1]
+                    week_stats, len_stats = weekday_call_stats(times, lengths)
+                    l.extend(week_stats); l.extend(len_stats)
+                    unif_call_stats = uniform_time_statistics(times, self.first_date, self.last_date, lengths)
+                    l.extend(unif_call_stats)
+                else mode == 'sms':
+                    e0, e1, times = utils.parse_time_line(row, False)
+                    l = [e0, e1]
+                    week_stats, _ = weekday_call_stats(times)
+                    l.extend(week_stats)
+                    unif_sms_stats = uniform_time_statistics(times, self.first_date, self.last_date)
+                    l.extend(unif_sms_stats)
+
+                iet_na = inter_event_times(times, self.last_date, method='na')
+                l.extend(iet_na)
+
+                iet_km = inter_event_times(times, self.last_date, self.first_date, method='km')
+                l.extend(iet_km)
+
+                bursty_trains = number_of_bursty_trains(times, delta=self.delta)
+                l.append(bursty_trains)
+
+                l = [str(s) for s in l]
+                w.write(' '.join(l))
+                row = r.readline()
+        w.close()
 
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
@@ -115,6 +173,7 @@ class TieStrengths(object):
         self.paths['trains'] = os.path.join(self.run_path, 'bursty_trains.edg')
         if not os.path.isfile(self.paths['trains']):
             bursty_trains_to_file(self.paths['times_dict'], self.paths['trains'], self.delta)
+
 
     def all_stats(self):
 
