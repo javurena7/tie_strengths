@@ -104,33 +104,38 @@ class TieStrengths(object):
         colnames = ['0', '1']
         week_stats = [mode[0] + '_wkn_' + str(i) for i in range(12)]; week_stats.append(mode[0] + '_wkn_t')
         colnames.extend(week_stats)
-        if mode == 'call'
+        if mode == 'call':
             len_stats = [mode[0] + '_wkl_' + str(i) for i in range(12)]; len_stats.append(mode[0] + '_wkl_l')
             colnames.extend(len_stats)
         unif_stats = [mode[0] + '_uts_' + i for i in ['mu', 'sig', 'sig0', 'logt']]
         colnames.extend(unif_stats)
         iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'mu_km', 'sig_km', 'bur_km']]
         colnames.extend(iet_names)
-        colnames.append(mode[0] + 'brtrn')
+        colnames.append(mode[0] + '_brtrn')
+        w.write(' '.join(colnames) + '\n')
         with open(self.paths[mode + '_times'], 'r') as r:
             row = r.readline()
             while row:
                 if mode=='call':
                     e0, e1, times, lengths = utils.parse_time_line(row, True)
                     l = [e0, e1]
+                    lengths = [ln + 1 for ln in lengths] #Some call lengths are zero
                     week_stats, len_stats = weekday_call_stats(times, lengths)
                     l.extend(week_stats); l.extend(len_stats)
                     unif_call_stats = uniform_time_statistics(times, self.first_date, self.last_date, lengths)
                     l.extend(unif_call_stats)
-                else mode == 'sms':
+                elif mode == 'sms':
                     e0, e1, times = utils.parse_time_line(row, False)
                     l = [e0, e1]
                     week_stats, _ = weekday_call_stats(times)
                     l.extend(week_stats)
                     unif_sms_stats = uniform_time_statistics(times, self.first_date, self.last_date)
                     l.extend(unif_sms_stats)
-
-                iet_na = inter_event_times(times, self.last_date, method='na')
+		
+                if len(times) > 1:
+                    iet_na = inter_event_times(times, self.last_date, method='naive')
+                else:
+                    iet_na = [np.nan]
                 l.extend(iet_na)
 
                 iet_km = inter_event_times(times, self.last_date, self.first_date, method='km')
@@ -140,7 +145,7 @@ class TieStrengths(object):
                 l.append(bursty_trains)
 
                 l = [str(s) for s in l]
-                w.write(' '.join(l))
+                w.write(' '.join(l) + '\n')
                 row = r.readline()
         w.close()
 

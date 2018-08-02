@@ -384,7 +384,7 @@ def inter_event_times(x, end, start=None, method='km'):
 
     estimator = events.IntereventTimeEstimator(end, mode='censorall')
     if method=='km' and start not in x:
-        x.append(start)
+        x.insert(0, start)
     estimator.add_time_seq(x)
     mu = estimator.estimate_moment(1, method)
     sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
