@@ -70,6 +70,7 @@ class TieStrengths(object):
             self.paths['extended_logs'] = os.path.join(extended_logs_path)
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
+            self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Creating extended net... \n', self.paths['status'])
@@ -80,12 +81,19 @@ class TieStrengths(object):
                 write_logs('\t Calculating overlap... \n', self.paths['status'])
                 at.net_overlap(net_ext, output_path=self.paths['overlap'], alt_net_path=self.paths['net'])
                 write_logs('\t Done. \n', self.paths['status'])
+            if not os.path.isfile(self.paths['degrees']):
+                print('Obtaining degrees\n')
+                awk_degrees(self.paths['extended_net'], self.paths['degrees'])
         # Obtain basic overlap
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
+            self.paths['degrees'] = os.path.join(run_path, 'degrees.txt')
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
                 at.net_overlap(net, output_path=self.paths['overlap'])
+            if not os.path.isfile(self.paths['degrees']):
+                print('Obtaining degrees\n')
+                awk_degrees(self.paths['net'], self.paths['degrees'])
 
         self.run_path = run_path
         self.delta = delta

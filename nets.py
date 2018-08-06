@@ -144,6 +144,12 @@ def awk_filter_extended_net(net_path, extended_net_path, output_path):
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
+def awk_degrees(net_path, output_path):
+    main_awk = "{a[$1]+=1; a[$2]+=1} END {for(i in a) print i, a[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", net_path, ">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
+
 def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None):
     """
     Function for creating a dictionary with all the elements, where each entry
