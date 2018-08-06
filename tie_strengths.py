@@ -71,6 +71,7 @@ class TieStrengths(object):
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
+            self.paths['neighbors'] = os.path.join(run_path, 'neighbors.txt')
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Creating extended net... \n', self.paths['status'])
@@ -81,9 +82,6 @@ class TieStrengths(object):
                 write_logs('\t Calculating overlap... \n', self.paths['status'])
                 at.net_overlap(net_ext, output_path=self.paths['overlap'], alt_net_path=self.paths['net'])
                 write_logs('\t Done. \n', self.paths['status'])
-            if not os.path.isfile(self.paths['degrees']):
-                print('Obtaining degrees\n')
-                awk_degrees(self.paths['extended_net'], self.paths['degrees'])
         # Obtain basic overlap
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
@@ -91,9 +89,11 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
                 at.net_overlap(net, output_path=self.paths['overlap'])
-            if not os.path.isfile(self.paths['degrees']):
-                print('Obtaining degrees\n')
-                awk_degrees(self.paths['net'], self.paths['degrees'])
+        if not os.path.isfile(self.paths['degrees']):
+            print('Obtaining degrees\n')
+            awk_degrees(self.paths['net'], self.paths['degrees'])
+        if not os.path.isfile(self.paths['neighbors']):
+            get_neighbors(self.path['overlap'], self.paths['degrees'], self.paths['neighbors'])
 
         self.run_path = run_path
         self.delta = delta
@@ -139,7 +139,7 @@ class TieStrengths(object):
                     l.extend(week_stats)
                     unif_sms_stats = uniform_time_statistics(times, self.first_date, self.last_date)
                     l.extend(unif_sms_stats)
-		
+
                 if len(times) > 1:
                     iet_na = inter_event_times(times, self.last_date, method='naive')
                 else:

@@ -9,6 +9,7 @@ from verkko.binner.binhelp import *
 from scipy.stats import mode
 import utils
 import os
+import pandas as pd #only for one function
 
 logs_path = '../data/mobile_network/madrid/madrid_call_newid_log.txt'
 times_path = 'run/madrid_2504/times_dic.txt'
@@ -250,6 +251,16 @@ def uniform_time_statistics(times, start, end, weights=None):
     s1 = np.average((times - mu)**2, weights=weights)**.5
     t = abs(mu-.5)*len(times)**.5/s1
     return [mu, s1, s0, np.log(t)]
+
+
+def get_neighbors(ov_path, deg_path, output_path):
+    df = pd.read_table(ov_path, sep=' ', names=['0', '1', 'ovrl'])
+    degs = pd.read_table(deg_path, sep=' ', names=['n', 'deg'])
+    df = pd.merge(df, degs, left_on='0', right_on='n', how='left', copy=False)
+    df = pd.merge(df, degs, left_on='1', right_on='n', how='left', suffixes=('_0', '_1'), copy=False)
+#TODO: delete columns with n_0 and n_1
+    df.loc[:, 'n_ij'] = df[['ovrl', 'deg_0', 'deg_1']].apply(lambda x: round(x[0]*(x[1] + x[2]-2)/(x[0]+1)), axis=1)
+    df.to_csv(output_path, sep=' ', index=False)
 
 
 def reciprocity(logs_path=logs_path, output_path_1=None, output_path_2=None, id_cols=(1, 3)):
