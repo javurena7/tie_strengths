@@ -258,7 +258,7 @@ def get_neighbors(ov_path, deg_path, output_path):
     degs = pd.read_table(deg_path, sep=' ', names=['n', 'deg'])
     df = pd.merge(df, degs, left_on='0', right_on='n', how='left', copy=False)
     df = pd.merge(df, degs, left_on='1', right_on='n', how='left', suffixes=('_0', '_1'), copy=False)
-#TODO: delete columns with n_0 and n_1
+    del df['n_0']; del df['n_1']
     df.loc[:, 'n_ij'] = df[['ovrl', 'deg_0', 'deg_1']].apply(lambda x: round(x[0]*(x[1] + x[2]-2)/(x[0]+1)), axis=1)
     df.to_csv(output_path, sep=' ', index=False)
 
@@ -403,8 +403,9 @@ def inter_event_times(x, end, start=None, method='km'):
     if method=='km' and start not in x:
         x.insert(0, start)
     estimator.add_time_seq(x)
-    mu = estimator.estimate_moment(1, method)
-    sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+    c_norm = 60*60*24
+    mu = estimator.estimate_moment(1, method)/c_norm
+    sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)/c_norm
     try:
         burst = (sigma - mu)/(sigma + mu)
     except:
