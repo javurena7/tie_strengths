@@ -258,7 +258,7 @@ def get_neighbors(ov_path, deg_path, output_path):
     degs = pd.read_table(deg_path, sep=' ', names=['n', 'deg'])
     df = pd.merge(df, degs, left_on='0', right_on='n', how='left', copy=False)
     df = pd.merge(df, degs, left_on='1', right_on='n', how='left', suffixes=('_0', '_1'), copy=False)
-#TODO: delete columns with n_0 and n_1
+    del df['n_0']; del df['n_1']
     df.loc[:, 'n_ij'] = df[['ovrl', 'deg_0', 'deg_1']].apply(lambda x: round(x[0]*(x[1] + x[2]-2)/(x[0]+1)), axis=1)
     df.to_csv(output_path, sep=' ', index=False)
 
@@ -397,20 +397,24 @@ def km_residual_intervals(x, method='km', max_date=1177970399.):
     mu = estimator.estimate_moment(1, method)
     return mu
 
-def inter_event_times(x, end, start=None, method='km'):
+def inter_event_times(x, end, start, method='km'):
 
-    estimator = events.IntereventTimeEstimator(end, mode='censorall')
-    if method=='km' and start not in x:
-        x.insert(0, start)
+    c_norm = 60*60*24.
+    estimator = events.IntereventTimeEstimator((end-start)/c_norm, mode='censorall')
+    x = [(t - start)/c_norm for t in x]
     estimator.add_time_seq(x)
     mu = estimator.estimate_moment(1, method)
-    sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+    try:
+        sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+    except:
+        sigma = np.inf
+
     try:
         burst = (sigma - mu)/(sigma + mu)
     except:
         burst = np.nan
-    return [mu, sigma, burst]
 
+    return [mu, sigma, burst]
 
 
 def km_burstiness(x, method='km', max_date=1177970399.):
