@@ -141,7 +141,7 @@ class TieStrengths(object):
                     l.extend(unif_sms_stats)
 
                 if len(times) > 1:
-                    iet_na = inter_event_times(times, self.last_date, method='naive')
+                    iet_na = inter_event_times(times, self.last_date, self.first_date, method='naive')
                 else:
                     iet_na = [np.nan]
                 l.extend(iet_na)
