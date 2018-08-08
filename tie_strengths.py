@@ -157,6 +157,21 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
+    def _join_dataframes(self, df_list=['neighbors', 'call_times', 'sms_times'], mode_list=['inner', 'outer'], return_df = False):
+        df = pd.read_table(self.paths[df_list[0]], sep=' ')
+        for name, mode in zip(df_list[1:], mode_list):
+            df_2 = pd.read_table(name, sep=' ')
+            df = pd.merge(df, df_2, on=['0', '1'], how=mode)
+        self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
+        df.to_csv(self.paths['full_df'], sep=' ', index=False)
+        if return_df:
+            return df
+
+    def _df_preprocessing(self, df=None):
+        if df is None:
+            df = pd.read_table(self.paths['full_df'], sep=' ')
+
+
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
         path = 'burstiness_{}.edg'.format(kaplan[:2])

@@ -403,13 +403,17 @@ def inter_event_times(x, end, start, method='km'):
     estimator = events.IntereventTimeEstimator((end-start)/c_norm, mode='censorall')
     x = [(t - start)/c_norm for t in x]
     estimator.add_time_seq(x)
-
     mu = estimator.estimate_moment(1, method)
-    sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+    try:
+        sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+    except:
+        sigma = np.inf
+
     try:
         burst = (sigma - mu)/(sigma + mu)
     except:
         burst = np.nan
+
     return [mu, sigma, burst]
 
 
