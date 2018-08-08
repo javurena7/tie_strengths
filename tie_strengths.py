@@ -93,7 +93,7 @@ class TieStrengths(object):
             print('Obtaining degrees\n')
             awk_degrees(self.paths['net'], self.paths['degrees'])
         if not os.path.isfile(self.paths['neighbors']):
-            get_neighbors(self.path['overlap'], self.paths['degrees'], self.paths['neighbors'])
+            get_neighbors(self.paths['overlap'], self.paths['degrees'], self.paths['neighbors'])
 
         self.run_path = run_path
         self.delta = delta
