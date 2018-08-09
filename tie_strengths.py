@@ -160,7 +160,7 @@ class TieStrengths(object):
     def _join_dataframes(self, df_list=['neighbors', 'call_stats', 'sms_stats'], mode_list=['outer', 'outer'], return_df = False):
         df = pd.read_table(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
-            df_2 = pd.read_table(name, sep=' ')
+            df_2 = pd.read_table(self.paths[name], sep=' ')
             df = pd.merge(df, df_2, on=['0', '1'], how=mode)
         self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
         df.to_csv(self.paths['full_df'], sep=' ', index=False)
