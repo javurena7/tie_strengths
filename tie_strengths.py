@@ -143,7 +143,7 @@ class TieStrengths(object):
                 if len(times) > 1:
                     iet_na = inter_event_times(times, self.last_date, method='naive')
                 else:
-                    iet_na = [np.nan]
+                    iet_na = [np.nan, np.nan, np.nan]
                 l.extend(iet_na)
 
                 iet_km = inter_event_times(times, self.last_date, self.first_date, method='km')
@@ -157,7 +157,7 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
-    def _join_dataframes(self, df_list=['neighbors', 'call_times', 'sms_times'], mode_list=['inner', 'outer'], return_df = False):
+    def _join_dataframes(self, df_list=['neighbors', 'call_stats', 'sms_stats'], mode_list=['outer', 'outer'], return_df = False):
         df = pd.read_table(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
             df_2 = pd.read_table(name, sep=' ')

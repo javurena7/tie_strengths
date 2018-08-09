@@ -249,7 +249,11 @@ def uniform_time_statistics(times, start, end, weights=None):
     mu = np.average(times, weights=weights)
     s0 = np.average((times - .5)**2, weights=weights)**.5
     s1 = np.average((times - mu)**2, weights=weights)**.5
-    t = abs(mu-.5)*len(times)**.5/s1
+    try:
+        t = abs(mu-.5)*len(times)**.5/s1
+    except:
+        t = np.inf
+
     return [mu, s1, s0, np.log(t)]
 
 
@@ -320,7 +324,8 @@ def number_of_bursty_trains(x, delta):
                 t = 0.0
                 e += 1
         return e
-    return 1
+    else:
+        return 1
 
 
 def read_timesdic(path):
