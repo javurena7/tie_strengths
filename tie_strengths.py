@@ -172,6 +172,7 @@ class TieStrengths(object):
             df = pd.read_table(self.paths['full_df'], sep=' ')
 
 
+
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
         path = 'burstiness_{}.edg'.format(kaplan[:2])

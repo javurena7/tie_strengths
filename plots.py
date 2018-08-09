@@ -203,6 +203,31 @@ def loglinheatmap(x, y, z, factor_x=1.5, n_bins_y=20, stat='mean', xlabel=r'$w$ 
 
     return fig, ax
 
+def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$B$', title='Overlap as a function of Number of Calls and Burstiness\n' + r'$\langle O | w, B \rangle$', exp_f=1):
+    """
+    exp_f contains an "expansion factor". The linear part is ploted [0-1], but we use this expansion factor to depict different things (for instance, =25 for 24 hours)
+    """
+
+    bins_x = binner.Bins(float, min(x), max(x), 'lin', n_bins_x)
+    bins_y = binner.Bins(float, min(y), max(y), 'lin', n_bins_y)
+    bin_means, _, _, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
+    bin_means = np.nan_to_num(bin_means.T)
+    extent = [bins_x.bin_limits[0], bins_x.bin_limits[-1], bins_y.bin_limits[0], bins_y.bin_limits[-1]]
+    fig, ax = plt.subplots(1)
+    cax = ax.imshow(bin_means, extent=extent, origin="lower")
+    x_ticks = np.linspace(bins_x.bin_limits[0], bins_x.bin_limits[-1],
+            len(bins_x.bin_limits))
+    ax.set_xticks(x_ticks)
+    ax.set_xticklabels([round(xb, 2) for xb in bins_x.bin_limits])
+    y_ticks = np.linspace(bins_y.bin_limits[0], bins_y.bin_limits[-1],
+            len(bins_y.bin_limits))
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels([round(yb, 2) for yb in bins_y.bin_limits])
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.set_title(title)
+    fig.colorbar(cax)
+    return fig, ax
 
 def plot_cumul_dist(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title=''):
     """
