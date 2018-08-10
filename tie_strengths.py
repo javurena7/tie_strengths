@@ -11,6 +11,7 @@ from itertools import chain, combinations, product
 from verkko.binner import bins as binner
 from scipy.stats import binned_statistic_dd
 from sklearn import linear_model
+from re import search as re_search
 import os
 import yaml
 
@@ -171,7 +172,17 @@ class TieStrengths(object):
         if df is None:
             df = pd.read_table(self.paths['full_df'], sep=' ')
 
+        pttrn = '_wk(n|l)_(\d+|t|l)'
+        df_nas = {col: 0. for col in df.columns if re_search(pattrn, col)}
+        df_nas['c_brtrn'] = 0.
+        df_nas['s_brtrn'] = 0.
+        # use df.fill_na with dictionary df_nas
 
+        # try with
+        # iet_bur as 1
+        # uts_sig as .5
+        # uts_mu a random sample from the distribution of uts-mu with one call
+        # think about iet_mu, iet_sig, uts_logt
 
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
