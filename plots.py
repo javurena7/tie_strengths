@@ -124,7 +124,7 @@ def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle
     """
     Used for burstiness VS overlap
     """
-    bins = binner.Bins(float, int(min(x)), max(x), 'lin', x_bins)
+    bins = binner.Bins(float, int(np.floor(min(x))), max(x), 'lin', x_bins)
     bin_means, _, _ = binned_statistic(x, y, bins=bins.bin_limits)
     if not fig:
         fig = plt.figure()

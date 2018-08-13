@@ -173,16 +173,38 @@ class TieStrengths(object):
             df = pd.read_table(self.paths['full_df'], sep=' ')
 
         pttrn = '_wk(n|l)_(\d+|t|l)'
-        df_nas = {col: 0. for col in df.columns if re_search(pattrn, col)}
+        df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
         df_nas['c_brtrn'] = 0.
         df_nas['s_brtrn'] = 0.
-        # use df.fill_na with dictionary df_nas
+        df_nas['c_iet_mu_na'] = np.inf #take tanh(x/obs_period_in_days)
+        df_nas['s_iet_mu_na'] = np.inf #take tanh(x/obs_period_in_days)
+        df_nas['c_iet_mu_km'] = np.inf
+        df_nas['s_iet_mu_km'] = np.inf
+        df_nas['c_iet_sig_na'] = np.inf #take tanh(2*x/obs_period_in_days)
+        df_nas['c_iet_sig_km'] = np.inf
+        df_nas['s_iet_sig_na'] = np.inf
+        df_nas['s_iet_sig_km'] = np.inf
+        df_nas['c_iet_bur_na'] = 1.
+        df_nas['c_iet_bur_km'] = 1.
+        df_nas['s_iet_bur_na'] = 1.
+        df_nas['s_iet_bur_km'] = 1.
+        df_nas['c_uts_sig'] = .5
+        df_nas['c_uts_sig0'] = .5
+        df_nas['s_uts_sig'] = .5
+        df_nas['s_uts_sig0'] = .5
+        df_nas['c_uts_logt'] = np.inf #take tanh(.1*x)
+        df_nas['s_uts_logt'] = np.inf #take tanh(.1*x)
 
-        # try with
-        # iet_bur as 1
-        # uts_sig as .5
-        # uts_mu a random sample from the distribution of uts-mu with one call
-        # think about iet_mu, iet_sig, uts_logt
+        df = df.fillna(value=df_nas)
+
+        # add uts_mu sampling from the distribution (with uts_mu==1)
+        idx = df.s_wkn_t == 1
+        r_idx = df.s_uts_mu.isnull()
+        df.loc[r_idx, 's_uts_mu'] = np.random.choice(df.s_uts_mu[~r_idx & idx], size=r_idx.sum())
+        idx = df.c_wkn_t == 1
+        r_idx = df.c_uts_mu.isnull()
+        df.loc[r_idx, 'c_uts_mu'] = np.random.choice(df.c_uts_mu[~r_idx & idx], size=r_idx.sum())
+
 
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
