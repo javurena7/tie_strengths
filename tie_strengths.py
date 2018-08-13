@@ -184,6 +184,8 @@ class TieStrengths(object):
         df_nas['c_iet_sig_km'] = np.inf
         df_nas['s_iet_sig_na'] = np.inf
         df_nas['s_iet_sig_km'] = np.inf
+        df_nas['c_uts_logt'] = np.inf #take tanh(.1*x)
+        df_nas['s_uts_logt'] = np.inf #take tanh(.1*x)
         df_nas['c_iet_bur_na'] = 1.
         df_nas['c_iet_bur_km'] = 1.
         df_nas['s_iet_bur_na'] = 1.
@@ -192,8 +194,6 @@ class TieStrengths(object):
         df_nas['c_uts_sig0'] = .5
         df_nas['s_uts_sig'] = .5
         df_nas['s_uts_sig0'] = .5
-        df_nas['c_uts_logt'] = np.inf #take tanh(.1*x)
-        df_nas['s_uts_logt'] = np.inf #take tanh(.1*x)
 
         df = df.fillna(value=df_nas)
 
@@ -205,6 +205,17 @@ class TieStrengths(object):
         r_idx = df.c_uts_mu.isnull()
         df.loc[r_idx, 'c_uts_mu'] = np.random.choice(df.c_uts_mu[~r_idx & idx], size=r_idx.sum())
 
+        obs_period = 31 # (self.last_date - self.first_date)/(24*60*60)
+        df.loc[:, 'c_iet_mu_na'] =  np.tanh(df['c_iet_mu_na']/obs_period) #take tanh(x/obs_period_in_days)
+        df.loc[:, 's_iet_mu_na'] = np.tanh(df['s_iet_mu_na']/obs_period) #take tanh(x/obs_period_in_days)
+        df.loc[:, 'c_iet_mu_km'] = np.tanh(df['c_iet_mu_km']/obs_period)
+        df.loc[:, 's_iet_mu_km'] = np.tanh(df['s_iet_mu_km']/obs_period)
+        df.loc[:, 'c_iet_sig_na'] = np.tanh(2*df['c_iet_sig_na']/obs_period)
+        df.loc[:, 'c_iet_sig_km'] = np.tanh(2*df['c_iet_sig_km']/obs_period)
+        df.loc[:, 's_iet_sig_na'] = np.tanh(2*df['s_iet_sig_na']/obs_period)
+        df.loc[:, 's_iet_sig_km'] = np.tanh(2*df['s_iet_sig_km']/obs_period)
+        df.loc[:, 'c_uts_logt'] = np.tanh(0.1*df['c_uts_logt'])
+        df.loc[:, 's_uts_logt'] = np.tanh(0.1*df['s_uts_logt'])
 
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
