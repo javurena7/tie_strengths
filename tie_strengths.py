@@ -105,7 +105,7 @@ class TieStrengths(object):
 
     def get_stats(self, mode='call'):
 
-        assert mode in ['call', 'sms'], "mode must be either 'call' or 'sms'"
+        assert mode in ['call', 'ms'], "mode must be either 'call' or 'sms'"
         assert os.path.isfile(self.paths[mode + '_times']), mode + '_times file not found'
         self.paths[mode + '_stats'] = os.path.join(self.run_path, mode + '_stats.txt')
         w = open(self.paths[mode + '_stats'], 'wb')
@@ -168,9 +168,20 @@ class TieStrengths(object):
         if return_df:
             return df
 
-    def _df_preprocessing(self, df=None):
+    def df_preprocessing(self, params, na_values,df=None):
         if df is None:
             df = pd.read_table(self.paths['full_df'], sep=' ')
+
+        df = df.fillna(value=na_values)
+
+        for col, c in params['tanh']:
+            df.loc[:, col] = (c*df[col]).apply(np.tanh)
+
+        for col, c in params['log']:
+            df.loc[:, col] = (df + c).apply(np.log)
+
+        for col, c in params['sqr']:
+            df.loc[:, col] = ((df c)**2)
 
         pttrn = '_wk(n|l)_(\d+|t|l)'
         df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
@@ -186,9 +197,9 @@ class TieStrengths(object):
         df_nas['s_iet_sig_km'] = np.inf
         df_nas['c_uts_logt'] = np.inf #take tanh(.1*x)
         df_nas['s_uts_logt'] = np.inf #take tanh(.1*x)
-        df_nas['c_iet_bur_na'] = 1.
-        df_nas['c_iet_bur_km'] = 1.
-        df_nas['s_iet_bur_na'] = 1.
+        df_nas['c_iet_bur_na'] = 0.
+        df_nas['c_iet_bur_km'] = 0.
+        df_nas['s_iet_bur_na'] = 0.
         df_nas['s_iet_bur_km'] = 1.
         df_nas['c_uts_sig'] = .5
         df_nas['c_uts_sig0'] = .5
@@ -216,6 +227,17 @@ class TieStrengths(object):
         df.loc[:, 's_iet_sig_km'] = np.tanh(2*df['s_iet_sig_km']/obs_period)
         df.loc[:, 'c_uts_logt'] = np.tanh(0.1*df['c_uts_logt'])
         df.loc[:, 's_uts_logt'] = np.tanh(0.1*df['s_uts_logt'])
+
+        df.loc[:, 'c_brtrn'] = np.log(df['c_brtrn'] + 1)
+        df.loc[:, 's_brtrn'] = np.log(df['s_brtrn'] + 1)
+        df.loc[:, 'c_wkn_t'] = np.log(df['c_wkn_t'] + 1)
+        df.loc[:, 's_wkn_t'] = np.log(df['s_wkn_t'] + 1)
+        df.loc[:, 'c_wkl_l'] = np.log(df['c_wkl_l'] + 1)
+        return df
+
+    def _tanh(self, x, c):
+        return np.tanh(c*x)
+
 
     def _burstiness(self, kaplan):
         path_key = 'burstiness_' + kaplan[:2]
