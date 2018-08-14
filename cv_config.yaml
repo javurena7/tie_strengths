@@ -1,5 +1,22 @@
 output_file: 'cv_stats.csv'
 
+params: 
+    - 'tanh':
+        - 'iet_mu': 
+            - 'na': ['inf']
+            - 'c': ['1', '1./obs', '2./obs', '4./obs']
+        - 'iet_sig':
+            - 'na': ['-inf', 'inf']
+            - 'c': ['1', '1./obs', '2./obs', '4./obs']
+        - 'uts_logt':
+            - 'na': ['inf']
+            - 'c': ['.05', '.1', '.5', '.1']
+    - 'sqr':
+        - 'iet_bur':
+            - 'na': [-1., 0., 1.]
+            - 'c': [.3, .5, .7]
+    
+
 n_calls: ['raw', 'rank', 'log']
 overlap: ['raw', 'rank']
 trains: ['raw', 'rank']
@@ -8,6 +25,7 @@ burstiness_km: ['raw', 'rank']
 mean_iet_na: ['raw', 'rank', 'log']
 mean_iet_km: ['raw', 'rank', 'log']
 calltimes: ['raw']
+reciprocity: ['raw', 'rank']
 
 bin_params:
     n_calls: ['log', 1.1, 30]
@@ -17,3 +35,4 @@ bin_params:
     mean_iet_na: ['log', 1.1, 30]
     mean_iet_km: ['log', 1.1, 30]
     calltimes: ['lin', 23]
+    reciprocity: ['lin', 20]

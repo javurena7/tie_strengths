@@ -168,7 +168,7 @@ class TieStrengths(object):
         if return_df:
             return df
 
-    def df_preprocessing(self, params, na_values,df=None):
+    def df_preprocessing(self, params, na_values, df=None):
         if df is None:
             df = pd.read_table(self.paths['full_df'], sep=' ')
 
@@ -178,10 +178,14 @@ class TieStrengths(object):
             df.loc[:, col] = (c*df[col]).apply(np.tanh)
 
         for col, c in params['log']:
-            df.loc[:, col] = (df + c).apply(np.log)
+            df.loc[:, col] = (df[col] + c).apply(np.log)
 
         for col, c in params['sqr']:
-            df.loc[:, col] = ((df c)**2)
+            df.loc[:, col] = ((df[col] - c)**2)
+
+        for col in params['rank']:
+            l, _ = df.shape
+            df.loc[:, col] = rankdata(df[col])/float(l)
 
         pttrn = '_wk(n|l)_(\d+|t|l)'
         df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
