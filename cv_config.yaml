@@ -1,38 +1,42 @@
 output_file: 'cv_stats.csv'
 
-params: 
-    - 'tanh':
-        - 'iet_mu': 
-            - 'na': ['inf']
-            - 'c': ['1', '1./obs', '2./obs', '4./obs']
-        - 'iet_sig':
-            - 'na': ['-inf', 'inf']
-            - 'c': ['1', '1./obs', '2./obs', '4./obs']
-        - 'uts_logt':
-            - 'na': ['inf']
-            - 'c': ['.05', '.1', '.5', '.1']
-    - 'sqr':
-        - 'iet_bur':
-            - 'na': [-1., 0., 1.]
-            - 'c': [.3, .5, .7]
-    
-
-n_calls: ['raw', 'rank', 'log']
-overlap: ['raw', 'rank']
-trains: ['raw', 'rank']
-burstiness_na: ['raw', 'rank']
-burstiness_km: ['raw', 'rank']
-mean_iet_na: ['raw', 'rank', 'log']
-mean_iet_km: ['raw', 'rank', 'log']
-calltimes: ['raw']
-reciprocity: ['raw', 'rank']
-
-bin_params:
-    n_calls: ['log', 1.1, 30]
-    trains: ['log', 1.1, 30]
-    burstiness_na: ['lin', 30]
-    burstiness_km: ['lin', 30]
-    mean_iet_na: ['log', 1.1, 30]
-    mean_iet_km: ['log', 1.1, 30]
-    calltimes: ['lin', 23]
-    reciprocity: ['lin', 20]
+preprocess_params: 
+    iet_mu:
+        tanh: 
+            na: ['inf']
+            c: ['1', '1./obs', '2./obs', '4./obs']
+        sqr:
+            na: ['obs']
+            c: ['1']
+    iet_mu:
+        tanh: 
+            na: ['-inf', 'inf']
+            c: ['1', '1./obs', '2./obs', '4./obs']
+    uts_log:
+        tanh:
+            na: ['inf']
+            c: [.05, .1, .5, 1.]
+    iet_bur:
+        sqr:
+            na: [-1., 0., 1.]
+            c: [.3, .5, .7]
+    uts_mu:
+        sqr:
+            na: [0, 'uts_mu'] #TODO: deal with this/ add same value as the other 
+            c: [0, .5]
+    uts_sig:
+        sqr:
+            na: [0, .5]
+            c: [0, .25]
+    brtrn:
+        log:
+            na: [0]
+            c: [1]
+    wkn_t:
+        log:
+            na: [0]
+            c: [1]
+    wkl_l:
+        log:
+            na: [0]
+            c: [1]

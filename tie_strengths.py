@@ -14,6 +14,7 @@ from sklearn import linear_model
 from re import search as re_search
 import os
 import yaml
+import copy
 
 
 def write_logs(msg, path):
@@ -59,7 +60,7 @@ class TieStrengths(object):
         if rm:
             remove_tmp(tmp_file)
 
-#### Create net files
+## Create net files
         # Create net
         self.paths['net'] = os.path.join(run_path, 'net.edg')
         if not os.path.isfile(self.paths['net']):
@@ -105,7 +106,7 @@ class TieStrengths(object):
 
     def get_stats(self, mode='call'):
 
-        assert mode in ['call', 'ms'], "mode must be either 'call' or 'sms'"
+        assert mode in ['call', 'sms'], "mode must be either 'call' or 'sms'"
         assert os.path.isfile(self.paths[mode + '_times']), mode + '_times file not found'
         self.paths[mode + '_stats'] = os.path.join(self.run_path, mode + '_stats.txt')
         w = open(self.paths[mode + '_stats'], 'wb')
@@ -179,7 +180,6 @@ class TieStrengths(object):
 
         for col, c in params['log']:
             df.loc[:, col] = (df[col] + c).apply(np.log)
-
         for col, c in params['sqr']:
             df.loc[:, col] = ((df[col] - c)**2)
 
@@ -238,6 +238,28 @@ class TieStrengths(object):
         df.loc[:, 's_wkn_t'] = np.log(df['s_wkn_t'] + 1)
         df.loc[:, 'c_wkl_l'] = np.log(df['c_wkl_l'] + 1)
         return df
+
+    def get_variable_transformations(columns, cv_params):
+        params = copy.deepcopy(cv_params)
+        nas = {k:[] for k in params}
+        for k, v in params.iteritems():
+            for trans in v:
+                nas[k].extend(v[trans]['na'])
+        for var in params.keys():
+            params[var]['raw'] = {'na': []}
+            params[var]['rank'] = {'na': nas[var]}
+
+        flt = {}
+        for var, var_dict in params.iteritems():
+            for transf in var_dict:
+                if transf not in ['rank', 'raw']:
+                    params[var][transf] = [list(a) for a in product(params[var][transf]['na'], params[var][transf]['c'])]
+                else:
+                    params[var][transf] = [[n] for n in params[var][transf]['na']]
+            import pdb; pdb.set_trace()
+            flt[var] = [(k, comb) for k, v in var_dict.items() for comb in v]
+        cols_pttrns = [var for transf in params.values() for var in transf.keys()]
+        return params
 
     def _tanh(self, x, c):
         return np.tanh(c*x)
