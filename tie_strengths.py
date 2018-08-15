@@ -254,12 +254,19 @@ class TieStrengths(object):
             for transf in var_dict:
                 if transf not in ['rank', 'raw']:
                     params[var][transf] = [list(a) for a in product(params[var][transf]['na'], params[var][transf]['c'])]
-                else:
+                elif transf == 'rank':
                     params[var][transf] = [[n] for n in params[var][transf]['na']]
-            import pdb; pdb.set_trace()
-            flt[var] = [(k, comb) for k, v in var_dict.items() for comb in v]
+                else:
+                    params[var][transf] = [[]]
+            flt[var] = [[k] + comb for k, v in var_dict.items() for comb in v]
         cols_pttrns = [var for transf in params.values() for var in transf.keys()]
-        return params
+        return params, flt
+
+    def _ifelse(a, b, c):
+        if a:
+            return b
+        else:
+            return c
 
     def _tanh(self, x, c):
         return np.tanh(c*x)

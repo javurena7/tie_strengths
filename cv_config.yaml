@@ -4,22 +4,22 @@ preprocess_params:
     iet_mu:
         tanh: 
             na: ['inf']
-            c: ['1', '1./obs', '2./obs', '4./obs']
+            c: ['1./obs', '2./obs']
         sqr:
             na: ['obs']
             c: ['1']
-    iet_mu:
+    iet_sig:
         tanh: 
-            na: ['-inf', 'inf']
-            c: ['1', '1./obs', '2./obs', '4./obs']
+            na: ['inf']
+            c: ['1./obs', '2./obs']
     uts_log:
         tanh:
-            na: ['inf']
-            c: [.05, .1, .5, 1.]
+            na: ['inf', '-inf']
+            c: [.1, .5]
     iet_bur:
         sqr:
             na: [-1., 0., 1.]
-            c: [.3, .5, .7]
+            c: [3, .5]
     uts_mu:
         sqr:
             na: [0, 'uts_mu'] #TODO: deal with this/ add same value as the other 
