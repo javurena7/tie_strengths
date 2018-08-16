@@ -1,6 +1,6 @@
 from nets import *
 import analysis_tools as at
-import numpy as np
+import numpy as np; from numpy import inf
 import pandas as pd
 import plots
 from pandas import read_pickle
@@ -34,7 +34,9 @@ class TieStrengths(object):
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
         self.first_date, self.last_date = get_dates(self.paths['logs'])
+        self._obs = (self.last_date - self.first_date)/(60.*60*24)
 
+        """
         with open(self.paths['status'], 'wb') as f:
             f.write('running on ' + run_path + ' \n')
         write_logs('-------------\n', self.paths['status'])
@@ -96,11 +98,11 @@ class TieStrengths(object):
             awk_degrees(self.paths['net'], self.paths['degrees'])
         if not os.path.isfile(self.paths['neighbors']):
             get_neighbors(self.paths['overlap'], self.paths['degrees'], self.paths['neighbors'])
+        """
 
         self.run_path = run_path
         self.delta = delta
         self.df = None
-
         self.cv_columns = []
         self.km_variables = []
 
@@ -169,77 +171,37 @@ class TieStrengths(object):
         if return_df:
             return df
 
-    def df_preprocessing(self, params, na_values, df=None):
+    def df_preprocessing(self, transfs, na_values, df=None):
         if df is None:
             df = pd.read_table(self.paths['full_df'], sep=' ')
 
         df = df.fillna(value=na_values)
-
-        for col, c in params['tanh']:
+        for col, c in transfs.get('tanh', []):
             df.loc[:, col] = (c*df[col]).apply(np.tanh)
 
-        for col, c in params['log']:
+        for col, c in transfs.get('log', []):
             df.loc[:, col] = (df[col] + c).apply(np.log)
-        for col, c in params['sqr']:
+
+        for col, c in transfs.get('sqr', []):
             df.loc[:, col] = ((df[col] - c)**2)
 
-        for col in params['rank']:
+        for col in transfs.get('rank', []):
             l, _ = df.shape
             df.loc[:, col] = rankdata(df[col])/float(l)
 
-        pttrn = '_wk(n|l)_(\d+|t|l)'
-        df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
-        df_nas['c_brtrn'] = 0.
-        df_nas['s_brtrn'] = 0.
-        df_nas['c_iet_mu_na'] = np.inf #take tanh(x/obs_period_in_days)
-        df_nas['s_iet_mu_na'] = np.inf #take tanh(x/obs_period_in_days)
-        df_nas['c_iet_mu_km'] = np.inf
-        df_nas['s_iet_mu_km'] = np.inf
-        df_nas['c_iet_sig_na'] = np.inf #take tanh(2*x/obs_period_in_days)
-        df_nas['c_iet_sig_km'] = np.inf
-        df_nas['s_iet_sig_na'] = np.inf
-        df_nas['s_iet_sig_km'] = np.inf
-        df_nas['c_uts_logt'] = np.inf #take tanh(.1*x)
-        df_nas['s_uts_logt'] = np.inf #take tanh(.1*x)
-        df_nas['c_iet_bur_na'] = 0.
-        df_nas['c_iet_bur_km'] = 0.
-        df_nas['s_iet_bur_na'] = 0.
-        df_nas['s_iet_bur_km'] = 1.
-        df_nas['c_uts_sig'] = .5
-        df_nas['c_uts_sig0'] = .5
-        df_nas['s_uts_sig'] = .5
-        df_nas['s_uts_sig0'] = .5
-
-        df = df.fillna(value=df_nas)
-
         # add uts_mu sampling from the distribution (with uts_mu==1)
-        idx = df.s_wkn_t == 1
-        r_idx = df.s_uts_mu.isnull()
-        df.loc[r_idx, 's_uts_mu'] = np.random.choice(df.s_uts_mu[~r_idx & idx], size=r_idx.sum())
-        idx = df.c_wkn_t == 1
-        r_idx = df.c_uts_mu.isnull()
-        df.loc[r_idx, 'c_uts_mu'] = np.random.choice(df.c_uts_mu[~r_idx & idx], size=r_idx.sum())
+        #idx = df.s_wkn_t == 1
+        #r_idx = df.s_uts_mu.isnull()
+        #df.loc[r_idx, 's_uts_mu'] = np.random.choice(df.s_uts_mu[~r_idx & idx], size=r_idx.sum())
+        #idx = df.c_wkn_t == 1
+        #r_idx = df.c_uts_mu.isnull()
+        #df.loc[r_idx, 'c_uts_mu'] = np.random.choice(df.c_uts_mu[~r_idx & idx], size=r_idx.sum())
 
-        obs_period = 31 # (self.last_date - self.first_date)/(24*60*60)
-        df.loc[:, 'c_iet_mu_na'] =  np.tanh(df['c_iet_mu_na']/obs_period) #take tanh(x/obs_period_in_days)
-        df.loc[:, 's_iet_mu_na'] = np.tanh(df['s_iet_mu_na']/obs_period) #take tanh(x/obs_period_in_days)
-        df.loc[:, 'c_iet_mu_km'] = np.tanh(df['c_iet_mu_km']/obs_period)
-        df.loc[:, 's_iet_mu_km'] = np.tanh(df['s_iet_mu_km']/obs_period)
-        df.loc[:, 'c_iet_sig_na'] = np.tanh(2*df['c_iet_sig_na']/obs_period)
-        df.loc[:, 'c_iet_sig_km'] = np.tanh(2*df['c_iet_sig_km']/obs_period)
-        df.loc[:, 's_iet_sig_na'] = np.tanh(2*df['s_iet_sig_na']/obs_period)
-        df.loc[:, 's_iet_sig_km'] = np.tanh(2*df['s_iet_sig_km']/obs_period)
-        df.loc[:, 'c_uts_logt'] = np.tanh(0.1*df['c_uts_logt'])
-        df.loc[:, 's_uts_logt'] = np.tanh(0.1*df['s_uts_logt'])
+        df.dropna(inplace=True)
 
-        df.loc[:, 'c_brtrn'] = np.log(df['c_brtrn'] + 1)
-        df.loc[:, 's_brtrn'] = np.log(df['s_brtrn'] + 1)
-        df.loc[:, 'c_wkn_t'] = np.log(df['c_wkn_t'] + 1)
-        df.loc[:, 's_wkn_t'] = np.log(df['s_wkn_t'] + 1)
-        df.loc[:, 'c_wkl_l'] = np.log(df['c_wkl_l'] + 1)
         return df
 
-    def get_variable_transformations(columns, cv_params):
+    def get_variable_transformations(self, cv_params):
         params = copy.deepcopy(cv_params)
         nas = {k:[] for k in params}
         for k, v in params.iteritems():
@@ -259,8 +221,51 @@ class TieStrengths(object):
                 else:
                     params[var][transf] = [[]]
             flt[var] = [[k] + comb for k, v in var_dict.items() for comb in v]
-        cols_pttrns = [var for transf in params.values() for var in transf.keys()]
-        return params, flt
+
+        return flt
+
+    def params_cross_validation(self, cv_path='tie_strengths/cv_config.yaml'):
+        conf = yaml.load(open(cv_path))
+        params = self.get_variable_transformations(conf['params'])
+        cols_pttrns = params.keys()
+        try: #TODO: change this (for db)
+            self.paths['full_df']
+        except:
+            self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
+        df = pd.read_table(self.paths['full_df'], sep=' ')
+        cols_dic = self.get_cols_dic(cols_pttrns, df.columns) # link cols with patterns
+        pttrn = '_wk(n|l)_(\d+|t|l)'
+        df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
+        n_rows = float(df.shape[0])
+        for comb in product(*params.values()):
+            transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
+            nas.update(df_nas)
+            proc_df = self.df_preprocessing(transf, nas, df)
+            print(str(proc_df.shape[0]/n_rows))
+
+    def get_cols_dic(self, cols_pttrns, columns):
+        cols_dic = {pttrn: [] for pttrn in cols_pttrns}
+        for col in columns:
+            for pttrn in cols_pttrns:
+                if re_search(pttrn, col):
+                    cols_dic[pttrn].append(col)
+                    break
+        return cols_dic
+
+    def parse_variable_combinations(self, cols_pttrns, cols_dic, comb):
+        transf, nas = {cbn[0]:[] for cbn in comb}, {}
+        obs = self._obs
+        for pttrn, cbn in zip(cols_pttrns, comb):
+            if len(cbn) > 1:
+                nas.update({col: eval(cbn[1]) for col in cols_dic[pttrn]})
+            else:
+                transf['raw'].extend(cols_dic[pttrn])
+            if len(cbn) == 2:
+                transf[cbn[0]].extend(cols_dic[pttrn])
+            if len(cbn) == 3:
+                transf[cbn[0]].extend([(col, eval(cbn[2])) for col in cols_dic[pttrn]])
+
+        return transf, nas
 
     def _ifelse(a, b, c):
         if a:
@@ -268,40 +273,12 @@ class TieStrengths(object):
         else:
             return c
 
-    def _tanh(self, x, c):
-        return np.tanh(c*x)
-
-
-    def _burstiness(self, kaplan):
-        path_key = 'burstiness_' + kaplan[:2]
-        path = 'burstiness_{}.edg'.format(kaplan[:2])
-        self.paths[path_key] = os.path.join(self.run_path, path)
-        if not os.path.isfile(self.paths[path_key]):
-            net_burstiness(self.paths['times_dict'], self.paths[path_key], kaplan=kaplan)
-
-    def _mean_inter_event(self, kaplan):
-        path_key = 'mean_iet_' + kaplan[:2]
-        path = 'mean_iet_{}.edg'.format(kaplan[:2])
-        self.paths[path_key] = os.path.join(self.run_path, path)
-        if not os.path.isfile(self.paths[path_key]):
-            net_residual_times(path=self.paths['times_dict'], output_path=self.paths[path_key], kaplan=kaplan)
-
-    def _calltimes_mode(self):
-        self.paths['calltimes'] = os.path.join(self.run_path, 'calltimes.edg')
-        if not os.path.isfile(self.paths['calltimes']):
-            net_calltimes_mode(self.paths['times_dict'], self.paths['calltimes'])
 
     def _reciprocity(self):
         self.paths['reciprocity_1'] = os.path.join(self.run_path, 'reciprocity.edg')
         self.paths['reciprocity_2'] = os.path.join(self.run_path, 'reciprocity_2.edg')
         if not os.path.isfile(self.paths['reciprocity_1']):
             reciprocity(self.paths['logs'], self.paths['reciprocity_1'], self.paths['reciprocity_2'])
-
-    def _bursty_trains(self):
-        self.paths['trains'] = os.path.join(self.run_path, 'bursty_trains.edg')
-        if not os.path.isfile(self.paths['trains']):
-            bursty_trains_to_file(self.paths['times_dict'], self.paths['trains'], self.delta)
-
 
     def all_stats(self):
 
@@ -318,19 +295,6 @@ class TieStrengths(object):
         self._bursty_trains()
 
         self._reciprocity()
-
-        #self._join_stats()
-
-    def _join_stats(self, output_path):
-        stats_paths = {x: y for x, y in self.paths.items() if y.endswith('.edg')}
-        net_path = stats_paths.pop('net')
-        if 'extended_net' in stats_paths:
-            stats_paths.pop('extended_net')
-        ddf = pd.read_table(net_path, sep=' ', names=['0', '1', 'calls'])
-        for var, path in stats_paths.iteritems():
-            dd_h = pd.read_table(path, sep=' ', names=['0', '1', var])
-            ddf = pd.merge(ddf, dd_h, on=['0', '1'])
-        ddf.to_csv(output_path, sep=' ', index=False)
 
 
     def powerset(self, x):

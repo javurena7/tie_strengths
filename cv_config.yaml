@@ -1,42 +1,42 @@
 output_file: 'cv_stats.csv'
 
-preprocess_params: 
+params: 
     iet_mu:
         tanh: 
             na: ['inf']
             c: ['1./obs', '2./obs']
-        sqr:
-            na: ['obs']
-            c: ['1']
+#        sqr:
+#            na: ['obs']
+#            c: ['1']
     iet_sig:
         tanh: 
             na: ['inf']
             c: ['1./obs', '2./obs']
     uts_log:
         tanh:
-            na: ['inf', '-inf']
-            c: [.1, .5]
+            na: ['inf']
+            c: ['.1', '.5']
     iet_bur:
         sqr:
-            na: [-1., 0., 1.]
-            c: [3, .5]
+            na: ['-1.','0.', '1.']
+            c: ['.5']
     uts_mu:
         sqr:
-            na: [0, 'uts_mu'] #TODO: deal with this/ add same value as the other 
-            c: [0, .5]
+            na: ['0'] #TODO: deal with this/ add same value as the other 
+            c: ['.5']
     uts_sig:
         sqr:
-            na: [0, .5]
-            c: [0, .25]
+            na: ['0', '.5']
+            c: ['.25']
     brtrn:
         log:
-            na: [0]
-            c: [1]
+            na: ['0']
+            c: ['1']
     wkn_t:
         log:
-            na: [0]
-            c: [1]
+            na: ['0']
+            c: ['1']
     wkl_l:
         log:
-            na: [0]
-            c: [1]
+            na: ['0']
+            c: ['1']
