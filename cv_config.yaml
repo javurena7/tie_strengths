@@ -5,9 +5,6 @@ params:
         tanh: 
             na: ['inf']
             c: ['1./obs', '2./obs']
-#        sqr:
-#            na: ['obs']
-#            c: ['1']
     iet_sig:
         tanh: 
             na: ['inf']

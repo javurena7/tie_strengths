@@ -234,19 +234,22 @@ class TieStrengths(object):
         except:
             self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
         df = pd.read_table(self.paths['full_df'], sep=' ')
+        print('Table Read \n')
         cols_dic = self.get_cols_dic(cols_pttrns, df.columns) # link cols with patterns
 
         # TODO: add this to a diff function, it's different preprocessing
         pttrn = '_wk(n|l)_(\d+|t|l)'
         df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
         df = df.fillna(value = df_nas)
-
-        wkn_cols = [col for col in df.columns if re_search('c_wkn_\d+', col)]
-        wkl_cols = [col for col in df.columns if re_search('c_wkl_\d+', col)]
-        wks_cols = [col for col in df.columns if re_search('s_wkn_\d+', col)]
-        #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
+        print('NAs filled\n')
+        wkn_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkn_\d+', col)]
+        wkl_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkl_\d+', col)]
+        wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
+        df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
+        print('First Variable\n')
         if len(wkn_cols) == len(wks_cols):
-            #df.loc[:, 's_c_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wks_cols]), axis=1)
+            df.loc[:, 's_c_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wks_cols]), axis=1)
+            print("Second Variable \n")
             wks_cols.append('s_c_dist')
         del df['c_wkn_0']
         del df['c_wkl_0']
@@ -257,8 +260,9 @@ class TieStrengths(object):
         del df['deg_0']
         del df['deg_1']
         w = open(conf['output_file'], 'wb')
-        w.write(';'.join(['conf', 'sms', 'n_row', 'score']) + '\n')
-
+        w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score']) + '\n')
+        w.close()
+        print("Obtaining models\n")
         for comb in product(*params.values()):
             transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
             proc_df = self.df_preprocessing(transf, nas, df)
@@ -270,7 +274,7 @@ class TieStrengths(object):
             except:
                 import pdb; pdb.set_trace()
             sc = rf.score(x_test, y_test)
-            self.write_results(w, comb, 1, proc_df.shape[0], sc)
+            self.write_results(conf, comb, 1, proc_df.shape[0], sc)
 
             transf = self.remove_sms_cols(transf)
             proc_df = self.df_preprocessing(transf, nas, df)
@@ -279,13 +283,15 @@ class TieStrengths(object):
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
-            self.write_results(w, comb, 0, proc_df.shape[0], sc)
+            self.write_results(conf, comb, 0, proc_df.shape[0], sc)
 
         w.close()
 
-    def write_results(self, w, comb, sms, n_row, score):
-        l = [str(comb), str(sms), str(n_row), str(score)]
-        w.write(';'.join(l) + '\n')
+    def write_results(self, conf, comb, sms, n_row, score):
+        ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score)]
+        w = open(conf['output_file'], 'ab')
+        w.write(' '.join(ltw) + '\n')
+        w.close()
 
     def remove_sms_cols(self, transf):
         transf_new = {k: [] for k in transf}
