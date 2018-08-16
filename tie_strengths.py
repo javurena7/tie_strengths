@@ -1,4 +1,5 @@
 from nets import *
+from sklearn.model_selection import train_test_split
 import analysis_tools as at
 import numpy as np; from numpy import inf
 import pandas as pd
@@ -11,7 +12,7 @@ from itertools import chain, combinations, product
 from verkko.binner import bins as binner
 from scipy.stats import binned_statistic_dd
 from sklearn import linear_model
-from re import search as re_search
+from re import search as re_search, match
 import os
 import yaml
 import copy
@@ -189,6 +190,7 @@ class TieStrengths(object):
             l, _ = df.shape
             df.loc[:, col] = rankdata(df[col])/float(l)
 
+
         # add uts_mu sampling from the distribution (with uts_mu==1)
         #idx = df.s_wkn_t == 1
         #r_idx = df.s_uts_mu.isnull()
@@ -196,9 +198,8 @@ class TieStrengths(object):
         #idx = df.c_wkn_t == 1
         #r_idx = df.c_uts_mu.isnull()
         #df.loc[r_idx, 'c_uts_mu'] = np.random.choice(df.c_uts_mu[~r_idx & idx], size=r_idx.sum())
-
+        df.replace(np.inf, np.nan, inplace=True)
         df.dropna(inplace=True)
-
         return df
 
     def get_variable_transformations(self, cv_params):
@@ -234,14 +235,69 @@ class TieStrengths(object):
             self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
         df = pd.read_table(self.paths['full_df'], sep=' ')
         cols_dic = self.get_cols_dic(cols_pttrns, df.columns) # link cols with patterns
+
+        # TODO: add this to a diff function, it's different preprocessing
         pttrn = '_wk(n|l)_(\d+|t|l)'
         df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
-        n_rows = float(df.shape[0])
+        df = df.fillna(value = df_nas)
+
+        wkn_cols = [col for col in df.columns if re_search('c_wkn_\d+', col)]
+        wkl_cols = [col for col in df.columns if re_search('c_wkl_\d+', col)]
+        wks_cols = [col for col in df.columns if re_search('s_wkn_\d+', col)]
+        #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
+        if len(wkn_cols) == len(wks_cols):
+            #df.loc[:, 's_c_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wks_cols]), axis=1)
+            wks_cols.append('s_c_dist')
+        del df['c_wkn_0']
+        del df['c_wkl_0']
+        del df['s_wkn_0']
+        del df['0']
+        del df['1']
+        del df['n_ij']
+        del df['deg_0']
+        del df['deg_1']
+        w = open(conf['output_file'], 'wb')
+        w.write(';'.join(['conf', 'sms', 'n_row', 'score']) + '\n')
+
         for comb in product(*params.values()):
             transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
-            nas.update(df_nas)
             proc_df = self.df_preprocessing(transf, nas, df)
-            print(str(proc_df.shape[0]/n_rows))
+            y = proc_df['ovrl']; del proc_df['ovrl']
+            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.3)
+            try:
+                rf = RandomForestRegressor()
+                rf.fit(x_train, y_train)
+            except:
+                import pdb; pdb.set_trace()
+            sc = rf.score(x_test, y_test)
+            self.write_results(w, comb, 1, proc_df.shape[0], sc)
+
+            transf = self.remove_sms_cols(transf)
+            proc_df = self.df_preprocessing(transf, nas, df)
+            y = proc_df['ovrl']; del proc_df['ovrl']
+            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.3)
+            rf = RandomForestRegressor()
+            rf.fit(x_train, y_train)
+            sc = rf.score(x_test, y_test)
+            self.write_results(w, comb, 0, proc_df.shape[0], sc)
+
+        w.close()
+
+    def write_results(self, w, comb, sms, n_row, score):
+        l = [str(comb), str(sms), str(n_row), str(score)]
+        w.write(';'.join(l) + '\n')
+
+    def remove_sms_cols(self, transf):
+        transf_new = {k: [] for k in transf}
+        for k, v in transf.iteritems():
+            for cmb in v:
+                if k == 'raw':
+                    if not match('s_', cmb):
+                        transf_new[k].append(cmb)
+                elif not match('s_', cmb[0]):
+                    transf_new[k].append(cmb)
+        return transf_new
+
 
     def get_cols_dic(self, cols_pttrns, columns):
         cols_dic = {pttrn: [] for pttrn in cols_pttrns}
