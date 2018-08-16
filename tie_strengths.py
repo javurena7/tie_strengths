@@ -209,7 +209,7 @@ class TieStrengths(object):
             for trans in v:
                 nas[k].extend(v[trans]['na'])
         for var in params.keys():
-            params[var]['raw'] = {'na': []}
+            #params[var]['raw'] = {'na': []}
             params[var]['rank'] = {'na': nas[var]}
 
         flt = {}
@@ -245,10 +245,10 @@ class TieStrengths(object):
         wkn_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkn_\d+', col)]
         wkl_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkl_\d+', col)]
         wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
-        df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
+        #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
         print('First Variable\n')
         if len(wkn_cols) == len(wks_cols):
-            df.loc[:, 's_c_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wks_cols]), axis=1)
+            #df.loc[:, 's_c_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wks_cols]), axis=1)
             print("Second Variable \n")
             wks_cols.append('s_c_dist')
         del df['c_wkn_0']
@@ -259,7 +259,8 @@ class TieStrengths(object):
         del df['n_ij']
         del df['deg_0']
         del df['deg_1']
-        w = open(conf['output_file'], 'wb')
+        self.paths['cv_stats'] = os.path.join(self.run_path, conf['output_file'])
+        w = open(self.paths['cv_stats'], 'wb')
         w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score']) + '\n')
         w.close()
         print("Obtaining models\n")
@@ -268,11 +269,8 @@ class TieStrengths(object):
             proc_df = self.df_preprocessing(transf, nas, df)
             y = proc_df['ovrl']; del proc_df['ovrl']
             x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.3)
-            try:
-                rf = RandomForestRegressor()
-                rf.fit(x_train, y_train)
-            except:
-                import pdb; pdb.set_trace()
+            rf = RandomForestRegressor()
+            rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
             self.write_results(conf, comb, 1, proc_df.shape[0], sc)
 
@@ -289,7 +287,7 @@ class TieStrengths(object):
 
     def write_results(self, conf, comb, sms, n_row, score):
         ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score)]
-        w = open(conf['output_file'], 'ab')
+        w = open(self.paths['cv_stats'], 'ab')
         w.write(' '.join(ltw) + '\n')
         w.close()
 
