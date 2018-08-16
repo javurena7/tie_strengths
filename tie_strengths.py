@@ -262,34 +262,33 @@ class TieStrengths(object):
         self.paths['cv_stats'] = os.path.join(self.run_path, conf['output_file'])
         w = open(self.paths['cv_stats'], 'wb')
         w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score']) + '\n')
-        w.close()
         print("Obtaining models\n")
         for comb in product(*params.values()):
             transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
             proc_df = self.df_preprocessing(transf, nas, df)
             y = proc_df['ovrl']; del proc_df['ovrl']
-            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.3)
+            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
-            self.write_results(conf, comb, 1, proc_df.shape[0], sc)
+            self.write_results(w, comb, 1, proc_df.shape[0], sc)
 
             transf = self.remove_sms_cols(transf)
             proc_df = self.df_preprocessing(transf, nas, df)
             y = proc_df['ovrl']; del proc_df['ovrl']
-            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.3)
+            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
-            self.write_results(conf, comb, 0, proc_df.shape[0], sc)
+            self.write_results(w, comb, 0, proc_df.shape[0], sc)
 
         w.close()
 
-    def write_results(self, conf, comb, sms, n_row, score):
+    def write_results(self, w, comb, sms, n_row, score):
         ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score)]
-        w = open(self.paths['cv_stats'], 'ab')
+        #w = open(self.paths['cv_stats'], 'ab')
         w.write(' '.join(ltw) + '\n')
-        w.close()
+        #w.close()
 
     def remove_sms_cols(self, transf):
         transf_new = {k: [] for k in transf}
