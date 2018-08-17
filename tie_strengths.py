@@ -226,7 +226,11 @@ class TieStrengths(object):
         return flt
 
     def params_cross_validation(self, cv_path='tie_strengths/cv_config.yaml'):
-        conf = yaml.load(open(cv_path))
+        try:
+             conf = yaml.load(open(cv_path))
+        except:
+            self.paths['cv_path'] = os.path.join(self.run_path, 'cv_config.yaml')
+            conf = yaml.load()
         params = self.get_variable_transformations(conf['params'])
         cols_pttrns = params.keys()
         try: #TODO: change this (for db)
