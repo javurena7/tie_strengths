@@ -240,6 +240,39 @@ def _classify_weekday(h, lv, wv, extra, bins, idx):
         lv[idx[2]] += 1
         wv[idx[2]] += extra
 
+def bin_ts(x, start_date, bin_len):
+    idx = set([(t-start_date)/bin_len for t in x])
+    s = 0
+    for i in idx:
+        if i+l in idx:
+            s = +1
+
+def autocorr_with_lags(x, start_date, bin_per_day, days=31):
+    bin_len = 60*60*24/bin_per_day
+    n_bins = bin_per_day*days
+    idx = set([(t - start_date)/bin_len for t in x])
+    s = [_autocorr(idx, l, n_bins) for l in range(1, max(idx))]
+    return s
+
+
+def _autocorr(x_bins, lag, n_bins):
+    s = 0
+    for i in x_bins:
+        if i+lag in x_bins: s += 1
+    return s/float(n_bins - lag)
+
+
+def max_autocorr(times, start_date, bin_per_day, days=31):
+    r = {}
+    for k, v in times.iteritems():
+        if len(v) > 1:
+            try:
+                r[k] = np.argmax(autocorr_with_lags(v, start_date, bin_per_day))/bin_per_day
+            except:
+                pass
+    return r
+
+
 def uniform_time_statistics(times, start, end, weights=None):
     """
     Obtains statistics to see how uniform the calls/sms
