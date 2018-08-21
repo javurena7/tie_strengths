@@ -1,30 +1,25 @@
-output_file: 'cv_stats_new.csv'
+output_file: 'cv_stats.csv'
 
 params: 
     iet_mu:
         tanh: 
             na: ['inf']
-            c: ['1./obs', '2./obs']
+            c: ['2./obs']
     iet_sig:
-        tanh: 
+        rank: 
             na: ['inf']
-            c: ['1./obs', '2./obs']
     uts_log:
-        tanh:
+        rank:
             na: ['inf']
-            c: ['.1', '.5']
     iet_bur:
-        sqr:
+        rank:
             na: ['-1.','0.', '1.']
-            c: ['.5']
     uts_mu:
-        sqr:
-            na: ['0'] #TODO: deal with this/ add same value as the other 
-            c: ['.5']
+        rank:
+            na: ['0', 'inf'] #TODO: deal with this/ add same value as the other 
     uts_sig:
-        sqr:
+        rank:
             na: ['0', '.5']
-            c: ['.25']
     brtrn:
         log:
             na: ['0']

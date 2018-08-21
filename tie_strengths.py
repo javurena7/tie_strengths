@@ -232,6 +232,7 @@ class TieStrengths(object):
             self.paths['cv_path'] = os.path.join(self.run_path, 'cv_config.yaml')
             conf = yaml.load()
         params = self.get_variable_transformations(conf['params'])
+        import pdb; pdb.set_trace()
         cols_pttrns = params.keys()
         try: #TODO: change this (for db)
             self.paths['full_df']
@@ -251,10 +252,6 @@ class TieStrengths(object):
         wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
         #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
         print('First Variable\n')
-        if len(wkn_cols) == len(wks_cols):
-            #df.loc[:, 's_c_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wks_cols]), axis=1)
-            print("Second Variable \n")
-            wks_cols.append('s_c_dist')
         del df['c_wkn_0']
         del df['c_wkl_0']
         del df['s_wkn_0']
