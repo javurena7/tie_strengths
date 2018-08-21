@@ -230,7 +230,7 @@ class TieStrengths(object):
              conf = yaml.load(open(cv_path))
         except:
             self.paths['cv_path'] = os.path.join(self.run_path, 'cv_config.yaml')
-            conf = yaml.load()
+            conf = yaml.load(open(self.paths['cv_path']))
         params = self.get_variable_transformations(conf['params'])
         import pdb; pdb.set_trace()
         cols_pttrns = params.keys()
