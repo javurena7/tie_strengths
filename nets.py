@@ -11,6 +11,8 @@ import utils
 import os
 import pandas as pd #only for one function
 
+from scipy.stats import entropy
+
 logs_path = '../data/mobile_network/madrid/madrid_call_newid_log.txt'
 times_path = 'run/madrid_2504/times_dic.txt'
 
@@ -240,19 +242,59 @@ def _classify_weekday(h, lv, wv, extra, bins, idx):
         lv[idx[2]] += 1
         wv[idx[2]] += extra
 
-def bin_ts(x, start_date, bin_len):
-    idx = set([(t-start_date)/bin_len for t in x])
-    s = 0
-    for i in idx:
-        if i+l in idx:
-            s = +1
+
+def bin_ts_idx(x, start_date, bin_len):
+    idx = [(t-start_date)/bin_len for t in x]
+    return idx
+
+# ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
+def assess_autocorr(run_path):
+    times = read_timesdic(run_path + 'times_dic_sample.txt')
+    res = []
+    start = 1167609600
+    lags = []
+    bins_per_day = [1, 4, 6, 12, 24]
+    for k, v in times.iteritems():
+        r = [k[0], k[1]]
+        for bin_per_day in bins_per_day:
+            ac = np.array(autocorr_with_lags(v, start, bin_per_day))
+            r.append(np.argmax(ac)/float(bin_per_day))
+            if sum(ac) > 0:
+                r.append(sum(ac*np.linspace(0, 1, len(ac))))
+                r.append(sum(ac/sum(ac)*np.linspace(0, 1, len(ac))))
+            else:
+                r.append(0)
+                r.append(np.inf)
+
+        res.append(r)
+    return np.array(r)
+
+
+
+def weekday_from_bins(x, start_day_weekday, bin_per_day, extra=None):
+    n_bins = bin_per_day*7
+    bins = [0]*n_bins
+    if extra is None:
+        for t in x:
+            bins[t % n_bins] += 1
+    else:
+        for t, e in zip(x, extra):
+            bins[t % n_bins] += e
+    return bins
+
 
 def autocorr_with_lags(x, start_date, bin_per_day, days=31):
     bin_len = 60*60*24/bin_per_day
     n_bins = bin_per_day*days
-    idx = set([(t - start_date)/bin_len for t in x])
-    s = [_autocorr(idx, l, n_bins) for l in range(1, max(idx))]
+    x_bins = set(bin_ts_idx(x, start_date, bin_len))
+    s = [_autocorr(x_bins, l, n_bins) for l in range(n_bins/2)]
     return s
+
+def autocorr_full(times, start_date, bin_per_day, days):
+    r = []
+    for k, v in times.iteritems():
+        r.append([k[0], k[1]] + autocorr_with_lags(v, start_date, bin_per_day, days))
+    return r
 
 
 def _autocorr(x_bins, lag, n_bins):
@@ -262,15 +304,10 @@ def _autocorr(x_bins, lag, n_bins):
     return s/float(n_bins - lag)
 
 
-def max_autocorr(times, start_date, bin_per_day, days=31):
-    r = {}
-    for k, v in times.iteritems():
-        if len(v) > 1:
-            try:
-                r[k] = np.argmax(autocorr_with_lags(v, start_date, bin_per_day))/bin_per_day
-            except:
-                pass
-    return r
+def jensen_shannon_divergence(x, y):
+    h_1 = entropy(.5*x + .5*y)
+    h_2 = .5*(entropy(x) + entropy(y))
+    return h_1 - h_2
 
 
 def uniform_time_statistics(times, start, end, weights=None):
