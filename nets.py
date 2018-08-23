@@ -250,10 +250,11 @@ def bin_ts_idx(x, start_date, bin_len):
 # ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
 def assess_autocorr(run_path):
     times = read_timesdic(run_path + 'times_dic_sample.txt')
+    times = {k: v for k, v in times.iteritems() if len(v) > 1}
     res = []
     start = 1167609600
     lags = []
-    bins_per_day = [1, 4, 6, 12, 24]
+    bins_per_day = [1, 4, 12]
     for k, v in times.iteritems():
         r = [k[0], k[1]]
         for bin_per_day in bins_per_day:
@@ -267,8 +268,31 @@ def assess_autocorr(run_path):
                 r.append(np.inf)
 
         res.append(r)
-    return np.array(r)
+    return np.array(res)
 
+
+def assess_fourier(run_path):
+    from collections import Counter
+    times = read_timesdic(run_path + 'times_dic_sample.txt')
+    times = {k: v for k, v in times.iteritems() if len(v) > 1}
+    res = []
+    start = 1167609600
+    bins_per_day = [1, 4, 6, 12]
+
+    for k, v in times.iteritems():
+        r = [k[0], k[1]]
+        for bin_per_day in bins_per_day:
+            n_bin = 31*bin_per_day
+            bin_x = bin_ts_idx(v, start, 60*60*24/bin_per_day)
+            z = np.zeros(n_bin)
+            for j, l in Counter(bin_x).iteritems():
+                z[j] = l
+            a = np.fft.fft(z)
+            r.append(sum(np.abs(np.real(a[1:]))))
+            r.append(np.real(a[0]))
+
+        res.append(r)
+    return np.array(res)
 
 
 def weekday_from_bins(x, start_day_weekday, bin_per_day, extra=None):
@@ -287,7 +311,7 @@ def autocorr_with_lags(x, start_date, bin_per_day, days=31):
     bin_len = 60*60*24/bin_per_day
     n_bins = bin_per_day*days
     x_bins = set(bin_ts_idx(x, start_date, bin_len))
-    s = [_autocorr(x_bins, l, n_bins) for l in range(n_bins/2)]
+    s = [_autocorr(x_bins, l, n_bins) for l in range(1, 2*n_bins/3)]
     return s
 
 def autocorr_full(times, start_date, bin_per_day, days):
