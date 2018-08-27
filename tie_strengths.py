@@ -32,12 +32,13 @@ class TieStrengths(object):
         self.paths = {'full_times_dict': os.path.join(run_path, 'times_dic.txt')}
         self.paths['call_times'] = os.path.join(run_path, 'call_times.txt')
         self.paths['sms_times'] = os.path.join(run_path, 'sms_times.txt')
+        self.paths['node_lens'] = os.path.join(run_path, 'node_lens.txt')
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
         self.first_date, self.last_date = get_dates(self.paths['logs'])
         self._obs = (self.last_date - self.first_date)/(60.*60*24)
 
-        """
+        #"""
         with open(self.paths['status'], 'wb') as f:
             f.write('running on ' + run_path + ' \n')
         write_logs('-------------\n', self.paths['status'])
@@ -45,7 +46,7 @@ class TieStrengths(object):
 #### Create files for temporal data
         rm = False
         # Create temporal file from logs
-        if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
+        if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times']), os.path.isfile(self.paths['node_lens'])]):
             awk_tmp_times(self.paths['logs'], tmp_file, run_path)
             rm = True
         # Create file with times of contact for each edge
@@ -60,6 +61,10 @@ class TieStrengths(object):
         if not os.path.isfile(self.paths['sms_times']):
             print('Creating sms dictionary...\n')
             awk_sms(tmp_file, self.paths['sms_times'])
+        if not os.path.isfile(self.paths['node_lens']):
+            print('Creating node lens dictionary... \n')
+            awk_node_call_lengths(tmp_file, self.paths['node_lens'])
+
         if rm:
             remove_tmp(tmp_file)
 
@@ -99,7 +104,7 @@ class TieStrengths(object):
             awk_degrees(self.paths['net'], self.paths['degrees'])
         if not os.path.isfile(self.paths['neighbors']):
             get_neighbors(self.paths['overlap'], self.paths['degrees'], self.paths['neighbors'])
-        """
+        #"""
 
         self.run_path = run_path
         self.delta = delta
