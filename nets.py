@@ -294,6 +294,18 @@ def assess_fourier(run_path):
         res.append(r)
     return np.array(res)
 
+from collections import Counter
+
+def simple_fourier(x, bin_per_day):
+    bin_x = bin_ts_idx(x, 1167609600, 60*60*24/bin_per_day)
+    x_bin = Counter(bin_x)
+    n_bin = 31*bin_per_day
+    z = np.zeros(n_bin)
+    for j, l in x_bin.iteritems():
+        z[j] = l
+    a = np.fft.fft(z)
+    return np.real(a), np.imag(a), z
+
 
 def weekday_from_bins(x, start_day_weekday, bin_per_day, extra=None):
     n_bins = bin_per_day*7
