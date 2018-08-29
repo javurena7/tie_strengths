@@ -257,7 +257,7 @@ def bin_ts_idx(x, start_date, bin_len):
 
 # ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
 def assess_autocorr(run_path):
-    times = read_timesdic(run_path + 'times_dic_sample.txt')
+    times, lens = read_timesdic(run_path + 'times_dic_sample.txt')
     times = {k: v for k, v in times.iteritems() if len(v) > 1}
     res = []
     start = 1167609600
@@ -330,8 +330,8 @@ def weekday_from_bins(x, start_day_weekday, bin_per_day, extra=None):
 def autocorr_with_lags(x, start_date, bin_per_day, days=31):
     bin_len = 60*60*24/bin_per_day
     n_bins = bin_per_day*days
-    x_bins = set(bin_ts_idx(x, start_date, bin_len))
-    s = [_autocorr(x_bins, l, n_bins) for l in range(1, 2*n_bins/3)]
+    x_bins = Counter(bin_ts_idx(x, start_date, bin_len))
+    s = [_autocorr(x_bins, l, n_bins) for l in range(1, n_bins)]
     return s
 
 def autocorr_full(times, start_date, bin_per_day, days):
@@ -344,8 +344,12 @@ def autocorr_full(times, start_date, bin_per_day, days):
 def _autocorr(x_bins, lag, n_bins):
     s = 0
     for i in x_bins:
-        if i+lag in x_bins: s += 1
-    return s/float(n_bins - lag)
+        # TODO: think of better ways to define autocorrelation
+        # Possible: with number of calls, with length on bin
+        if i+lag in x_bins: s += x_bins[i+lag]
+        #if i+lag+1 in x_bins: s += 1
+        #if lag > 1 and i+lag-1 in x_bins: s += 1
+    return s/float(n_bins)
 
 
 def jensen_shannon_divergence(x, y):
@@ -442,17 +446,24 @@ def number_of_bursty_trains(x, delta):
         return 1
 
 
-def read_timesdic(path):
+def read_timesdic(path, extra=False):
     dic = {}
+    extr = {}
     with open(path, 'r') as r:
         row = r.readline()
         while row:
-            rs = row.split(' ')
-            rs = [int(s) for s in rs]
-            dic[(rs[0], rs[1])] = rs[2:]
+            if extra:
+                n1, n2, a, b = utils.parse_time_line(row, True)
+                dic[(n1, n2)] = a
+                extr[(n1, n2)] = b
+            else:
+                n1, n2, a = utils.parse_time_line(row, False)
+                dic[(n1, n2)] = a
             row = r.readline()
-
-    return dic
+    if extra:
+        return dic, extr
+    else:
+        return dic
 
 def read_edgedic(path):
     dic = {}
