@@ -195,7 +195,7 @@ def loglinheatmap(x, y, z, factor_x=1.5, n_bins_y=20, stat='mean', xlabel=r'$w$ 
     y_ticks = np.linspace(bins_y.bin_limits[0], bins_y.bin_limits[-1],
             len(bins_y.bin_limits))
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels(exp_f*np.round(bins_y.bin_limits/max(x), 2))
+    ax.set_yticklabels([round(yb, 2) for yb in bins_y.bin_limits])
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_title(title)

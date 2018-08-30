@@ -257,26 +257,31 @@ def bin_ts_idx(x, start_date, bin_len):
 
 # ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
 def assess_autocorr(run_path):
-    times, lens = read_timesdic(run_path + 'times_dic_sample.txt')
+    times = read_timesdic(run_path + 'times_dic_1mill.txt')
     times = {k: v for k, v in times.iteritems() if len(v) > 1}
     res = []
     start = 1167609600
     lags = []
-    bins_per_day = [1, 4, 12]
+    bins_per_day = [1]
     for k, v in times.iteritems():
         r = [k[0], k[1]]
         for bin_per_day in bins_per_day:
-            ac = np.array(autocorr_with_lags(v, start, bin_per_day))
-            r.append(np.argmax(ac)/float(bin_per_day))
-            if sum(ac) > 0:
-                r.append(sum(ac*np.linspace(0, 1, len(ac))))
-                r.append(sum(ac/sum(ac)*np.linspace(0, 1, len(ac))))
-            else:
-                r.append(0)
-                r.append(np.inf)
-
+            ac = np.array(autocorr_with_lags(v, start, bin_per_day, 120))
+            b = float(bin_per_day)
+            r.append(len(v)) #2
+            r.append(ac[0])
+            r.append(ac[bin_per_day-1]) #4
+            r.append(np.mean(ac[bin_per_day*6-1:bin_per_day*8-1])) #5
+            r.append(ac[bin_per_day*7-1]) #6
+            r.append(np.mean(ac[bin_per_day*13-1:bin_per_day*16-1])) #7
+            r.append(np.mean(ac[bin_per_day*27-1:bin_per_day*35-1])) #8
+            r.append(np.argmax(ac)/b) #9
+            r.append(np.max(ac)) #10
         res.append(r)
-    return np.array(res)
+
+    res = pd.DataFrame(res, columns=[str(i) for i in range(11)])
+    res.to_csv(run_path + 'autocorr_test_' + str(bin_per_day) + 'bin_1mill.csv', sep=' ', index=False)
+    return res
 
 
 def assess_fourier(run_path):
@@ -330,7 +335,7 @@ def weekday_from_bins(x, start_day_weekday, bin_per_day, extra=None):
 def autocorr_with_lags(x, start_date, bin_per_day, days=31):
     bin_len = 60*60*24/bin_per_day
     n_bins = bin_per_day*days
-    x_bins = Counter(bin_ts_idx(x, start_date, bin_len))
+    x_bins = set(bin_ts_idx(x, start_date, bin_len))
     s = [_autocorr(x_bins, l, n_bins) for l in range(1, n_bins)]
     return s
 
@@ -346,7 +351,7 @@ def _autocorr(x_bins, lag, n_bins):
     for i in x_bins:
         # TODO: think of better ways to define autocorrelation
         # Possible: with number of calls, with length on bin
-        if i+lag in x_bins: s += x_bins[i+lag]
+        if i+lag in x_bins: s += 1
         #if i+lag+1 in x_bins: s += 1
         #if lag > 1 and i+lag-1 in x_bins: s += 1
     return s/float(n_bins)
