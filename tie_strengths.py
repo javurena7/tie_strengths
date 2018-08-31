@@ -170,9 +170,9 @@ class TieStrengths(object):
     def _join_dataframes(self, df_list=['neighbors', 'call_stats', 'sms_stats', 'node_lens'], mode_list=['outer', 'outer', 'inner'], return_df = False):
         df = pd.read_table(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
-            if mode == 'node_lens'
+            if name == 'node_lens':
                 df_2 = pd.read_table(self.paths[name], sep=' ', names=['0', 'n_len'])
-                df = pd.merge(df, d_2, on=['0'], how='inner')
+                df = pd.merge(df, df_2, on=['0'], how='inner')
                 df = pd.merge(df, df_2, left_on='1', right_on='0',how='inner', suffixes=['_0', '_1'])
             else:
                 df_2 = pd.read_table(self.paths[name], sep=' ')
