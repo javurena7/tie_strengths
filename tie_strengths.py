@@ -32,7 +32,7 @@ class TieStrengths(object):
         self.paths = {'full_times_dict': os.path.join(run_path, 'times_dic.txt')}
         self.paths['call_times'] = os.path.join(run_path, 'call_times.txt')
         self.paths['sms_times'] = os.path.join(run_path, 'sms_times.txt')
-        self.paths['node_lens'] = os.path.join(run_path, 'node_lens.txt')
+        self.paths['node_lens'] = os.path.join(run_path, 'node_lens.txt') #total call lens (including non company users)
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
         self.first_date, self.last_date = get_dates(self.paths['logs'])
@@ -63,7 +63,7 @@ class TieStrengths(object):
             awk_sms(tmp_file, self.paths['sms_times'])
         if not os.path.isfile(self.paths['node_lens']):
             print('Creating node lens dictionary... \n')
-            awk_node_call_lengths(tmp_file, self.paths['node_lens'])
+            awk_node_call_lengths(tmp_file, self.paths['node_lens'], self.paths[''])
 
         if rm:
             remove_tmp(tmp_file)
@@ -167,11 +167,16 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
-    def _join_dataframes(self, df_list=['neighbors', 'call_stats', 'sms_stats'], mode_list=['outer', 'outer'], return_df = False):
+    def _join_dataframes(self, df_list=['neighbors', 'call_stats', 'sms_stats', 'node_lens'], mode_list=['outer', 'outer', 'inner'], return_df = False):
         df = pd.read_table(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
-            df_2 = pd.read_table(self.paths[name], sep=' ')
-            df = pd.merge(df, df_2, on=['0', '1'], how=mode)
+            if mode == 'node_lens'
+                df_2 = pd.read_table(self.paths[name], sep=' ', names=['0', 'n_len'])
+                df = pd.merge(df, d_2, on=['0'], how='inner')
+                df = pd.merge(df, df_2, left_on='1', right_on='0',how='inner', suffixes=['_0', '_1'])
+            else:
+                df_2 = pd.read_table(self.paths[name], sep=' ')
+                df = pd.merge(df, df_2, on=['0', '1'], how=mode)
         self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
         df.to_csv(self.paths['full_df'], sep=' ', index=False)
         if return_df:
@@ -237,12 +242,12 @@ class TieStrengths(object):
             self.paths['cv_path'] = os.path.join(self.run_path, 'cv_config.yaml')
             conf = yaml.load(open(self.paths['cv_path']))
         params = self.get_variable_transformations(conf['params'])
-        import pdb; pdb.set_trace()
         cols_pttrns = params.keys()
         try: #TODO: change this (for db)
             self.paths['full_df']
         except:
             self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
+
         df = pd.read_table(self.paths['full_df'], sep=' ')
         print('Table Read \n')
         cols_dic = self.get_cols_dic(cols_pttrns, df.columns) # link cols with patterns
@@ -255,6 +260,10 @@ class TieStrengths(object):
         wkn_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkn_\d+', col)]
         wkl_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkl_\d+', col)]
         wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
+
+# TODO: check if its faster to apply diff function
+        df.loc[:, 'prop_len'] = nets.get_prop_len(df['c_wkl_l'], df['deg_0'], df['deg_1'], df['n_len_0'], df['n_len_1'])
+
         #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
         print('First Variable\n')
         del df['c_wkn_0']

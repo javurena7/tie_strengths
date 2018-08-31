@@ -251,6 +251,15 @@ def _classify_weekday(h, lv, wv, extra, bins, idx):
         wv[idx[2]] += extra
 
 
+def get_prop_len(total_len, deg_0, deg_1, n_len_0, n_len_1):
+    t_deg = deg_0 + deg_1
+    deg_0 = deg_0/t_deg
+    deg_1 = deg_1/t_deg
+    n_len_0 = total_len/n_len_0
+    n_len_1 = total_len/n_len_1
+    return deg_0*total_len/n_len_0 + deg_1*total_len/n_len_1
+
+
 def bin_ts_idx(x, start_date, bin_len):
     idx = [(t-start_date)/bin_len for t in x]
     return idx
@@ -258,13 +267,13 @@ def bin_ts_idx(x, start_date, bin_len):
 # ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
 def assess_autocorr(run_path):
     times = read_timesdic(run_path + 'times_dic_1mill.txt')
-    times = {k: v for k, v in times.iteritems() if len(v) > 1}
+    times = {k: v for k, v in times.iteritems() if (len(v) > 1) and (np.random.uniform() > .75)}
     res = []
     start = 1167609600
     lags = []
-    bins_per_day = [1]
+    bins_per_day = [4]
     for k, v in times.iteritems():
-        r = [k[0], k[1]]
+        r = [int(k[0]), int(k[1])]
         for bin_per_day in bins_per_day:
             ac = np.array(autocorr_with_lags(v, start, bin_per_day, 120))
             b = float(bin_per_day)
@@ -277,10 +286,13 @@ def assess_autocorr(run_path):
             r.append(np.mean(ac[bin_per_day*27-1:bin_per_day*35-1])) #8
             r.append(np.argmax(ac)/b) #9
             r.append(np.max(ac)) #10
-        res.append(r)
+            a = bin_ts_idx(v, start, 60*60*24/bin_per_day)
+            r.append(np.mean(a)/bin_per_day) #11
+            r.append(np.median(a)/bin_per_day) #12
+        res.append(np.round(r, 5))
 
-    res = pd.DataFrame(res, columns=[str(i) for i in range(11)])
-    res.to_csv(run_path + 'autocorr_test_' + str(bin_per_day) + 'bin_1mill.csv', sep=' ', index=False)
+    res = pd.DataFrame(res, columns=[str(i) for i in range(13)])
+    res.to_csv(run_path + 'autocorr_test_fullautocorr_' + str(bin_per_day) + 'bin_1mill.csv', sep=' ', index=False)
     return res
 
 
@@ -348,13 +360,13 @@ def autocorr_full(times, start_date, bin_per_day, days):
 
 def _autocorr(x_bins, lag, n_bins):
     s = 0
+    w = 0
     for i in x_bins:
-        # TODO: think of better ways to define autocorrelation
-        # Possible: with number of calls, with length on bin
         if i+lag in x_bins: s += 1
-        #if i+lag+1 in x_bins: s += 1
-        #if lag > 1 and i+lag-1 in x_bins: s += 1
-    return s/float(n_bins)
+    x_bins_comp = set(range(n_bins)).difference(x_bins)
+    for j in x_bins_comp:
+        if j + lag in x_bins_comp: w += 1
+    return (s+w)/float(n_bins)
 
 
 def jensen_shannon_divergence(x, y):
