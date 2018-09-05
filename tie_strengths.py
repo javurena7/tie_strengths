@@ -32,7 +32,6 @@ class TieStrengths(object):
         self.paths = {'full_times_dict': os.path.join(run_path, 'times_dic.txt')}
         self.paths['call_times'] = os.path.join(run_path, 'call_times.txt')
         self.paths['sms_times'] = os.path.join(run_path, 'sms_times.txt')
-        self.paths['node_lens'] = os.path.join(run_path, 'node_lens.txt') #total call lens (including non company users)
         self.paths['logs'] = logs_path
         self.paths['status'] = os.path.join(run_path, 'status.txt')
         self.first_date, self.last_date = get_dates(self.paths['logs'])
@@ -46,7 +45,7 @@ class TieStrengths(object):
 #### Create files for temporal data
         rm = False
         # Create temporal file from logs
-        if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times']), os.path.isfile(self.paths['node_lens'])]):
+        if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
             awk_tmp_times(self.paths['logs'], tmp_file, run_path)
             rm = True
         # Create file with times of contact for each edge
@@ -61,9 +60,6 @@ class TieStrengths(object):
         if not os.path.isfile(self.paths['sms_times']):
             print('Creating sms dictionary...\n')
             awk_sms(tmp_file, self.paths['sms_times'])
-        if not os.path.isfile(self.paths['node_lens']):
-            print('Creating node lens dictionary... \n')
-            awk_node_call_lengths(tmp_file, self.paths['node_lens'], self.paths[''])
 
         if rm:
             remove_tmp(tmp_file)
@@ -81,7 +77,9 @@ class TieStrengths(object):
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
-            self.paths['neighbors'] = os.path.join(run_path, 'neighbors.txt')
+            self.paths['neighbors'] = os.path.join(run_path, 'extended_neighbors.txt')
+
+            self.paths['node_lens'] = os.path.join(run_path, 'extended_node_lens.txt') #total call lens (including non company users)
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Creating extended net... \n', self.paths['status'])
@@ -92,17 +90,32 @@ class TieStrengths(object):
                 write_logs('\t Calculating overlap... \n', self.paths['status'])
                 at.net_overlap(net_ext, output_path=self.paths['overlap'], alt_net_path=self.paths['net'])
                 write_logs('\t Done. \n', self.paths['status'])
+            if not os.path.isfile(self.paths['degrees']):
+                awk_degrees(self.paths['extended_net'], self.paths['degrees'])
+            if not os.path.isfile(self.paths['node_lens']):
+                print('Creating node lens dictionary... \n')
+                awk_node_call_lengths(self.paths['extended_logs'], self.paths['node_lens'], type_i=4, clr_i=3, cle_i=5, cl_len=6)
+
         # Obtain basic overlap
         else:
             self.paths['overlap'] = os.path.join(run_path, 'overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'degrees.txt')
+            self.paths['neighbors'] = os.path.join(run_path, 'neighbors.txt')
+            self.paths['node_lens'] = os.path.join(run_path, 'node_lens.txt') #total call lens (including non company users)
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
                 at.net_overlap(net, output_path=self.paths['overlap'])
-        if not os.path.isfile(self.paths['degrees']):
-            print('Obtaining degrees\n')
-            awk_degrees(self.paths['net'], self.paths['degrees'])
+           
+            if not os.path.isfile(self.paths['degrees']):
+                print('Obtaining degrees\n')
+                awk_degrees(self.paths['net'], self.paths['degrees'])
+
+            if not os.path.isfile(self.paths['node_lens']):
+                print('Creating node lens dictionary... \n')
+                awk_node_call_lengths(self.paths['logs'], self.paths['node_lens'], type_i=3, clr_i=2, cle_i=4, cl_len=5)
+
         if not os.path.isfile(self.paths['neighbors']):
+            print('Obtaining neighbors')
             get_neighbors(self.paths['overlap'], self.paths['degrees'], self.paths['neighbors'])
         #"""
 
@@ -173,7 +186,7 @@ class TieStrengths(object):
             if name == 'node_lens':
                 df_2 = pd.read_table(self.paths[name], sep=' ', names=['0', 'n_len'])
                 df = pd.merge(df, df_2, on=['0'], how='inner')
-                df = pd.merge(df, df_2, left_on='1', right_on='0',how='inner', suffixes=['_0', '_1'])
+                df = pd.merge(df, df_2, left_on='1', right_on='0', how='inner', suffixes=['_0', '_1'])
             else:
                 df_2 = pd.read_table(self.paths[name], sep=' ')
                 df = pd.merge(df, df_2, on=['0', '1'], how=mode)

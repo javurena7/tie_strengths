@@ -98,11 +98,11 @@ def awk_tmp_times(logs_path, tmp_file, run_path):
     p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
     p2.wait()
 
-def awk_node_call_lengths(tmp_file, output_path):
+def awk_node_call_lengths(tmp_file, output_path, type_i=3, clr_i=2, cle_i=4, cl_len=5):
     """
     Create a file with the total file lenght nodes
     """
-    main_awk = "{if ($4 == 2) {if (a[$1]) a[$1] += $5; else a[$1] = $5; if (a[$2]) a[$2] += $5; else a[$2] = $5;}} END {for (i in a) print i, a[i];}"
+    main_awk = "{if ($%d == 2) {if (a[$%d]) a[$%d] += int(sqrt($%d^2)); else a[$%d] = int(sqrt($%d^2)); if (a[$%d]) a[$%d] += int(sqrt($%d^)); else a[$%d] = int(sqrt($%d^2));}} END {for (i in a) print i, a[i];}" % (type_i, clr_i, clr_i, cl_len, clr_i, cl_len, cle_i, cle_i, cl_len, cle_i, cl_len)
     cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
