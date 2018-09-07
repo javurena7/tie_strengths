@@ -260,13 +260,11 @@ def get_prop_len(total_len, deg_0, deg_1, n_len_0, n_len_1):
     return deg_0*total_len/n_len_0 + deg_1*total_len/n_len_1
 
 
-def bin_ts_idx(x, start_date, bin_len):
-    idx = [(t-start_date)/bin_len for t in x]
-    return idx
 
 # ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
 def assess_autocorr(run_path):
-    times = read_timesdic(run_path + 'times_dic_1mill.txt')
+    times = read_timesdic(run_path + 'times_dic.txt')
+    print(len(times))
     times = {k: v for k, v in times.iteritems() if (len(v) > 1) and (np.random.uniform() > .75)}
     res = []
     start = 1167609600
@@ -343,6 +341,18 @@ def weekday_from_bins(x, start_day_weekday, bin_per_day, extra=None):
             bins[t % n_bins] += e
     return bins
 
+def bin_ts_idx(x, start_date, bin_len, lens=None):
+    idx = [(t-start_date)/bin_len for t in x]
+    if lens is not None:
+        idx_ex = [(t+l-start_date)/bin_len for t, l in zip(x, lens)]
+        idx += idx_ex
+    return idx
+
+def random_lens(x, n=6):
+    #TODO: remove
+    # This function creates random call lengths (of max n mins) given a set of timestamps
+    return [np.random.randint(n*60) for t in x]
+
 
 def autocorr_with_lags(x, start_date, bin_per_day, days=31):
     bin_len = 60*60*24/bin_per_day
@@ -363,11 +373,23 @@ def _autocorr(x_bins, lag, n_bins):
     w = 0
     for i in x_bins:
         if i+lag in x_bins: s += 1
+
+    x_bin_sum_1 = len(set(range(n_bins-lag)).intersection(x_bins))
+    x_bin_sum_2 = len(set(range(lag, n_bins)).intersection(x_bins))
+    n = float(n_bins)
+    return (1+(x_bin_sum_1 + x_bin_sum_2)/n + n**-2)/(1-s/n+s*n**-2)
+
+def _autocorr_full(x_bins, lag, n_bins):
+    s = 0
+    w = 0
+    for i in x_bins:
+        if i+lag in x_bins: s += 1
     x_bins_comp = set(range(n_bins)).difference(x_bins)
     for j in x_bins_comp:
         if j + lag in x_bins_comp: w += 1
-    return (s+w)/float(n_bins)
+    x_m = s/float(n_bins)
 
+    return (s+w)/float(n_bins)
 
 def jensen_shannon_divergence(x, y):
     h_1 = entropy(.5*x + .5*y)
