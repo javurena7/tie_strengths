@@ -105,7 +105,7 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
                 at.net_overlap(net, output_path=self.paths['overlap'])
-           
+
             if not os.path.isfile(self.paths['degrees']):
                 print('Obtaining degrees\n')
                 awk_degrees(self.paths['net'], self.paths['degrees'])
@@ -140,7 +140,7 @@ class TieStrengths(object):
             colnames.extend(len_stats)
         unif_stats = [mode[0] + '_uts_' + i for i in ['mu', 'sig', 'sig0', 'logt']]
         colnames.extend(unif_stats)
-        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'mu_km', 'sig_km', 'bur_km']]
+        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'bur_c_na','mu_km', 'sig_km', 'bur_km', 'bur_c_km']]
         colnames.extend(iet_names)
         colnames.append(mode[0] + '_brtrn')
         w.write(' '.join(colnames) + '\n')

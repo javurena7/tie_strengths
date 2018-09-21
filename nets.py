@@ -263,17 +263,17 @@ def get_prop_len(total_len, deg_0, deg_1, n_len_0, n_len_1):
 
 # ASSESS HOW AUTOCORR WORKS - TO BE REMOVED
 def assess_autocorr(run_path):
-    times = read_timesdic(run_path + 'times_dic.txt')
+    times = read_timesdic(run_path + 'times_dic_sample.txt') #'four_months_times.txt')
     print(len(times))
-    times = {k: v for k, v in times.iteritems() if (len(v) > 1) and (np.random.uniform() > .75)}
+    times = {k: v for k, v in times.iteritems() if (len(v) > 1)}
     res = []
     start = 1167609600
     lags = []
-    bins_per_day = [4]
+    bins_per_day = [24]
     for k, v in times.iteritems():
         r = [int(k[0]), int(k[1])]
         for bin_per_day in bins_per_day:
-            ac = np.array(autocorr_with_lags(v, start, bin_per_day, 120))
+            ac = np.array(autocorr_with_lags(v, start, bin_per_day, 31))
             b = float(bin_per_day)
             r.append(len(v)) #2
             r.append(ac[0])
@@ -583,7 +583,14 @@ def inter_event_times(x, end, start, method='km'):
     except:
         burst = np.nan
 
-    return [mu, sigma, burst]
+    try:
+        n = len(x)
+        r = sigma/mu
+        burst_c = (np.sqrt(n+1)*r - np.sqrt(n-1))/((np.sqrt(n+1)-2)*r + np.sqrt(n-1))
+    except:
+        burst_c = np.nan
+
+    return [mu, sigma, burst, burst_c]
 
 
 def km_burstiness(x, method='km', max_date=1177970399.):
