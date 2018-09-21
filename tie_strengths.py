@@ -185,7 +185,9 @@ class TieStrengths(object):
         for name, mode in zip(df_list[1:], mode_list):
             if name == 'node_lens':
                 df_2 = pd.read_table(self.paths[name], sep=' ', names=['0', 'n_len'])
+                df_2['n_len'] = df_2['n_len'].apply(int)
                 df = pd.merge(df, df_2, on=['0'], how='inner')
+                import pdb; pdb.set_trace()
                 df = pd.merge(df, df_2, left_on='1', right_on='0', how='inner', suffixes=['_0', '_1'])
             else:
                 df_2 = pd.read_table(self.paths[name], sep=' ')
@@ -275,45 +277,64 @@ class TieStrengths(object):
         wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
 
 # TODO: check if its faster to apply diff function
-        df.loc[:, 'prop_len'] = nets.get_prop_len(df['c_wkl_l'], df['deg_0'], df['deg_1'], df['n_len_0'], df['n_len_1'])
+        df.loc[:, 'prop_len'] = get_prop_len(df['c_wkl_l'], df['deg_0'], df['deg_1'], df['n_len_0'], df['n_len_1'])
 
         #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
         print('First Variable\n')
         del df['c_wkn_0']
         del df['c_wkl_0']
         del df['s_wkn_0']
-        del df['0']
+        try:
+            del df['0']
+        except:
+            pass
         del df['1']
         del df['n_ij']
         del df['deg_0']
         del df['deg_1']
+        try:
+            del df['0_1']
+        except:
+            pass
+        try:
+            del df['1_1']
+        except:
+            pass
+        try:
+            del df['0_0']
+        except:
+            pass
+
         self.paths['cv_stats'] = os.path.join(self.run_path, conf['output_file'])
         w = open(self.paths['cv_stats'], 'wb')
-        w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score']) + '\n')
+        w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score', 'model']) + '\n')
         print("Obtaining models\n")
         for comb in product(*params.values()):
             transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
             proc_df = self.df_preprocessing(transf, nas, df)
+
+            import pdb; pdb.set_trace()
             y = proc_df['ovrl']; del proc_df['ovrl']
             x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
-            self.write_results(w, comb, 1, proc_df.shape[0], sc)
+            self.write_results(w, comb, 1, proc_df.shape[0], sc, 'RF')
 
-            transf = self.remove_sms_cols(transf)
+            transf = self.remove_sms_cols(transf) #TODO: change, this doesnt eliminate sms columns
             proc_df = self.df_preprocessing(transf, nas, df)
             y = proc_df['ovrl']; del proc_df['ovrl']
+            import pdb; pdb.set_trace()
             x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
-            self.write_results(w, comb, 0, proc_df.shape[0], sc)
+            self.write_results(w, comb, 0, proc_df.shape[0], sc, 'RF')
 
         w.close()
 
-    def write_results(self, w, comb, sms, n_row, score):
-        ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score)]
+    def write_results(self, w, comb, sms, n_row, score, model):
+        ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score), model]
         #w = open(self.paths['cv_stats'], 'ab')
         w.write(' '.join(ltw) + '\n')
         #w.close()
