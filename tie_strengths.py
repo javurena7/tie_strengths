@@ -8,6 +8,7 @@ from pandas import read_pickle
 from pickle import dump as dump_pickle
 from scipy.stats import rankdata
 from sklearn.ensemble import RandomForestRegressor
+#from sklearn.svm import SVR
 from itertools import chain, combinations, product
 from verkko.binner import bins as binner
 from scipy.stats import binned_statistic_dd
@@ -187,7 +188,6 @@ class TieStrengths(object):
                 df_2 = pd.read_table(self.paths[name], sep=' ', names=['0', 'n_len'])
                 df_2['n_len'] = df_2['n_len'].apply(int)
                 df = pd.merge(df, df_2, on=['0'], how='inner')
-                import pdb; pdb.set_trace()
                 df = pd.merge(df, df_2, left_on='1', right_on='0', how='inner', suffixes=['_0', '_1'])
             else:
                 df_2 = pd.read_table(self.paths[name], sep=' ')
@@ -197,16 +197,24 @@ class TieStrengths(object):
         if return_df:
             return df
 
-    def df_preprocessing(self, transfs, na_values, df=None):
+
+    def df_preprocessing(self, transfs, na_values, df=None, drop_sms=False):
         if df is None:
             df = pd.read_table(self.paths['full_df'], sep=' ')
+
+        if drop_sms:
+            columns = [c for c in df.columns if c.startswith('s_')]
+            df = df.drop(columns, axis=1)
 
         df = df.fillna(value=na_values)
         for col, c in transfs.get('tanh', []):
             df.loc[:, col] = (c*df[col]).apply(np.tanh)
 
         for col, c in transfs.get('log', []):
-            df.loc[:, col] = (df[col] + c).apply(np.log)
+            try:
+                df.loc[:, col] = (df[col] + c).apply(np.log)
+            except:
+                import pdb; pdb.set_trace()
 
         for col, c in transfs.get('sqr', []):
             df.loc[:, col] = ((df[col] - c)**2)
@@ -234,7 +242,7 @@ class TieStrengths(object):
             for trans in v:
                 nas[k].extend(v[trans]['na'])
         for var in params.keys():
-            #params[var]['raw'] = {'na': []}
+            params[var]['raw'] = {'na': []}
             params[var]['rank'] = {'na': nas[var]}
 
         flt = {}
@@ -276,7 +284,7 @@ class TieStrengths(object):
         wkl_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkl_\d+', col)]
         wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
 
-# TODO: check if its faster to apply diff function
+        # TODO: check if its faster to apply diff function
         df.loc[:, 'prop_len'] = get_prop_len(df['c_wkl_l'], df['deg_0'], df['deg_1'], df['n_len_0'], df['n_len_1'])
 
         #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
@@ -307,46 +315,57 @@ class TieStrengths(object):
 
         self.paths['cv_stats'] = os.path.join(self.run_path, conf['output_file'])
         w = open(self.paths['cv_stats'], 'wb')
-        w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score', 'model']) + '\n')
+        w.write(' '.join(cols_pttrns + ['sms', 'n_row', 'score', 'model', 'n']) + '\n')
         print("Obtaining models\n")
+        w.close()
         for comb in product(*params.values()):
             transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
             proc_df = self.df_preprocessing(transf, nas, df)
-
-            import pdb; pdb.set_trace()
             y = proc_df['ovrl']; del proc_df['ovrl']
             x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
             self.write_results(w, comb, 1, proc_df.shape[0], sc, 'RF')
+            print('1\n')
 
-            transf = self.remove_sms_cols(transf) #TODO: change, this doesnt eliminate sms columns
-            proc_df = self.df_preprocessing(transf, nas, df)
+            #svm = SVR()
+            #svm.fit(x_train, y_train)
+            #sc = svm.score(x_test, y_test)
+            #self.write_results(w, comb, 1, proc_df.shape[0], sc, 'RF')
+
+            #print('2\n')
+            transf = self.remove_sms_cols(transf)
+            proc_df = self.df_preprocessing(transf, nas, df, drop_sms=True)
             y = proc_df['ovrl']; del proc_df['ovrl']
-            import pdb; pdb.set_trace()
             x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
             self.write_results(w, comb, 0, proc_df.shape[0], sc, 'RF')
 
-        w.close()
+            print('2\n')
+            #svm = SVR()
+            #svm.fit(x_train, y_train)
+            #sc = svm.score(x_test, y_test)
+            #self.write_results(w, comb, 1, proc_df.shape[0], sc, 'SVM')
+            #print('4\n')
+
 
     def write_results(self, w, comb, sms, n_row, score, model):
         ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score), model]
-        #w = open(self.paths['cv_stats'], 'ab')
+        w = open(self.paths['cv_stats'], 'a')
         w.write(' '.join(ltw) + '\n')
-        #w.close()
+        w.close()
 
     def remove_sms_cols(self, transf):
         transf_new = {k: [] for k in transf}
         for k, v in transf.iteritems():
             for cmb in v:
-                if k == 'raw':
+                if k == 'raw' or k == 'rank':
                     if not match('s_', cmb):
                         transf_new[k].append(cmb)
-                elif not match('s_', cmb[0]):
+                elif not (match('s_', cmb[0])):
                     transf_new[k].append(cmb)
         return transf_new
 

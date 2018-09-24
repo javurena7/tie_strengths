@@ -2,33 +2,37 @@ output_file: 'cv_stats.csv'
 
 params: 
     iet_mu:
-        tanh: 
+        rank:
+        #tanh: 
             na: ['inf']
-            c: ['2./obs']
+        #    c: ['2./obs']
     iet_sig:
         rank: 
             na: ['inf']
-    uts_log:
-        rank:
-            na: ['inf']
+    #uts_log:
+    #    rank:
+    #        na: ['inf']
     iet_bur:
         rank:
             na: ['-1.','0.', '1.']
-    uts_mu:
-        rank:
-            na: ['0', 'inf'] #TODO: deal with this/ add same value as the other 
-    uts_sig:
-        rank:
-            na: ['0', '.5']
+    #uts_mu:
+    #    rank:
+    #        na: ['0', 'inf'] #TODO: deal with this/ add same value as the other 
+    #uts_sig:
+    #    rank:
+    #        na: ['0', '.5']
     brtrn:
         log:
+        #    rank:
             na: ['0']
             c: ['1']
-    wkn_t:
-        log:
-            na: ['0']
-            c: ['1']
-    wkl_l:
-        log:
-            na: ['0']
-            c: ['1']
+        #wkn_t:
+        #log:
+        #rank:
+        #   na: ['0']
+        #    c: ['1']
+        #wkl_l:
+        #log:
+        #rank:
+        #    na: ['0']
+        #    c: ['1']
