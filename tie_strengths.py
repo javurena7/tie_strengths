@@ -414,15 +414,15 @@ class TieStrengths(object):
             pass
 
         df.dropna(inplace=True)
-        self.paths['cv_class_stats'] = os.path.join(self.run_path, 'cv_class_stats.csv')
+        self.paths['cv_class_stats'] = os.path.join(self.run_path, 'cv_class_det0_stats.csv')
         w = open(self.paths['cv_class_stats'], 'wb')
-        w.write(' '.join(['alpha', 'num_1', 'accuracy', 'f1', 'matthews', 'precision', 'recall']) + '\n')
+        w.write(' '.join(['alpha', 'num_1', 'num_1_pred','accuracy', 'f1', 'matthews', 'precision', 'recall']) + '\n')
         w.close()
         y = df['ovrl']; del df['ovrl']
         print("Obtaining models\n")
-        alphas = [0.0, 0.001, 0.002, 0.004, 0.005, 0.01, 0.015] #+ list(np.arange(0.02, 0.1, .01)) + list(np.arange(0.1, .5, .05)) + list(np.arange(.5, 1, 0.1))
+        alphas = [0.0, 0.001, 0.002, 0.004, 0.005, 0.01, 0.015] + list(np.arange(0.02, 0.1, .01)) + list(np.arange(0.1, .5, .05)) + list(np.arange(.5, .9, 0.1)) + list(np.arange(.09, 1, .01))
         for alpha in alphas:
-            y_c = y.apply(lambda x: self._ifelse(x <= alpha, 0, 1))
+            y_c = y.apply(lambda x: self._ifelse(x <= alpha, 1, 0))
             x_train, x_test, y_train, y_test = train_test_split(df, y_c, test_size=0.5)
             rf = RandomForestClassifier()
             rf.fit(x_train, y_train)
