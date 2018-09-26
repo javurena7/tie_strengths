@@ -7,7 +7,8 @@ import plots
 from pandas import read_pickle
 from pickle import dump as dump_pickle
 from scipy.stats import rankdata
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, precision_score, recall_score
 #from sklearn.svm import SVR
 from itertools import chain, combinations, product
 from verkko.binner import bins as binner
@@ -291,7 +292,7 @@ class TieStrengths(object):
         print('First Variable\n')
         del df['c_wkn_0']
         del df['c_wkl_0']
-        del df['s_wkn_0']
+        #del df['s_wkn_0']
         try:
             del df['0']
         except:
@@ -322,12 +323,11 @@ class TieStrengths(object):
             transf, nas = self.parse_variable_combinations(cols_pttrns, cols_dic, comb)
             proc_df = self.df_preprocessing(transf, nas, df)
             y = proc_df['ovrl']; del proc_df['ovrl']
-            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.5)
+            x_train, x_test, y_train, y_test = train_test_split(proc_df, y, test_size=0.3)
             rf = RandomForestRegressor()
             rf.fit(x_train, y_train)
             sc = rf.score(x_test, y_test)
             self.write_results(w, comb, 1, proc_df.shape[0], sc, 'RF')
-            print('1\n')
 
             #svm = SVR()
             #svm.fit(x_train, y_train)
@@ -351,10 +351,99 @@ class TieStrengths(object):
             #self.write_results(w, comb, 1, proc_df.shape[0], sc, 'SVM')
             #print('4\n')
 
+    def regression_cv(self, cv_path='tie_strengths/cv_config.yaml'):
+        """
+        Performs CV at different levels of overlap
+        """
+        try:
+             conf = yaml.load(open(cv_path))
+        except:
+            self.paths['cv_path'] = os.path.join(self.run_path, 'cv_config.yaml')
+            conf = yaml.load(open(self.paths['cv_path']))
+        params = self.get_variable_transformations(conf['params'])
+        cols_pttrns = params.keys()
+
+        try: #TODO: change this (for db)
+            self.paths['full_df']
+        except:
+            self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
+
+        df = pd.read_table(self.paths['full_df'], sep=' ')
+        df = df[df.c_wkn_t > 2]
+
+        print('Table Read \n')
+        cols_dic = self.get_cols_dic(cols_pttrns, df.columns) # link cols with patterns
+
+        # TODO: add this to a diff function, it's different preprocessing
+        pttrn = '_wk(n|l)_(\d+|t|l)'
+        df_nas = {col: 0. for col in df.columns if re_search(pttrn, col)}
+
+        df = df.fillna(value = df_nas)
+        print('NAs filled\n')
+        wkn_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkn_\d+', col)]
+        wkl_cols = [n for n, col in enumerate(df.columns) if re_search('c_wkl_\d+', col)]
+        wks_cols = [n for n, col in enumerate(df.columns) if re_search('s_wkn_\d+', col)]
+
+        # TODO: check if its faster to apply diff function
+        df.loc[:, 'prop_len'] = get_prop_len(df['c_wkl_l'], df['deg_0'], df['deg_1'], df['n_len_0'], df['n_len_1'])
+
+        #df.loc[:, 'c_l_dist'] = df.apply(lambda x: np.dot(x[wkn_cols], x[wkl_cols]), axis=1)
+        print('First Variable\n')
+        del df['c_wkn_0']
+        del df['c_wkl_0']
+        #del df['s_wkn_0']
+        try:
+            del df['0']
+        except:
+            pass
+        del df['1']
+        del df['n_ij']
+        del df['deg_0']
+        del df['deg_1']
+        try:
+            del df['0_1']
+        except:
+            pass
+        try:
+            del df['1_1']
+        except:
+            pass
+        try:
+            del df['0_0']
+        except:
+            pass
+
+        df.dropna(inplace=True)
+        self.paths['cv_class_stats'] = os.path.join(self.run_path, 'cv_class_stats.csv')
+        w = open(self.paths['cv_class_stats'], 'wb')
+        w.write(' '.join(['alpha', 'num_1', 'accuracy', 'f1', 'matthews', 'precision', 'recall']) + '\n')
+        w.close()
+        y = df['ovrl']; del df['ovrl']
+        print("Obtaining models\n")
+        alphas = [0.0, 0.001, 0.002, 0.004, 0.005, 0.01, 0.015] #+ list(np.arange(0.02, 0.1, .01)) + list(np.arange(0.1, .5, .05)) + list(np.arange(.5, 1, 0.1))
+        for alpha in alphas:
+            y_c = y.apply(lambda x: self._ifelse(x <= alpha, 0, 1))
+            x_train, x_test, y_train, y_test = train_test_split(df, y_c, test_size=0.5)
+            rf = RandomForestClassifier()
+            rf.fit(x_train, y_train)
+            y_pred = rf.predict(x_test)
+            ac = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            mth = matthews_corrcoef(y_test, y_pred)
+            prc = precision_score(y_test, y_pred)
+            rec = recall_score(y_test, y_pred)
+            self.write_class_results(alpha, sum(y_c), sum(y_pred), ac, f1, mth, prc, rec)
+            print(str(alpha) + '\n')
 
     def write_results(self, w, comb, sms, n_row, score, model):
         ltw = ['_'.join(r) for r in comb] + [str(sms), str(n_row), str(score), model]
         w = open(self.paths['cv_stats'], 'a')
+        w.write(' '.join(ltw) + '\n')
+        w.close()
+
+    def write_class_results(self, alpha, n, n_pred, ac, f1, mth, prc, rec):
+        ltw = [str(round(i, 3)) for i in [alpha, n, n_pred, ac, f1, mth, prc, rec]]
+        w = open(self.paths['cv_class_stats'], 'a')
         w.write(' '.join(ltw) + '\n')
         w.close()
 
@@ -394,7 +483,7 @@ class TieStrengths(object):
 
         return transf, nas
 
-    def _ifelse(a, b, c):
+    def _ifelse(self, a, b, c):
         if a:
             return b
         else:
