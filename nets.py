@@ -191,6 +191,29 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
     return dic
 
 
+
+def hour_weekly_call_distribution(x, lengths=None):
+    """
+    Obtain the weekly call distribution for each edge, binning by hour
+    input: timestamps
+
+    returns: vector with
+    """
+    dates = [dt.datetime.fromtimestamp(d) for d in x]
+    vec = [0] * (7*24)
+    if lengths is None:
+        for date in dates:
+            w, h = date.weekday(), date.hour
+            vec[24*w + h] += 1
+        t = sum(vec) + 0.
+    else:
+        for date, length in zip(dates, lengths):
+            w, h = date.weekday(), date.hour
+            vec[24*w + h] += length
+        t = sum(vec) + 1.
+    return [round(v/t, 4) for v in vec]
+
+
 def weekday_call_stats(x, extra_information=None):
     """
     Function for obtaining the proportion of calls/sms according to day of the week and time.

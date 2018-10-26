@@ -127,6 +127,39 @@ class TieStrengths(object):
         self.cv_columns = []
         self.km_variables = []
 
+
+    def get_time_distribution(self, mode='call'):
+        """
+        Obtain the time distribution: for each pair, compute the fraction of times \
+                in each hour-long bin of the week
+        """
+        self.paths['week_vec_' + mode] = os.path.join(self.run_path, 'week_vec_' + mode + '.txt')
+        w = open(self.paths['week_vec_' + mode], 'wb')
+        names = [str(i) + '_' + str(j) for i, j in product(range(7), range(24))]
+        w.write(' '.join(['0', '1'] + names) + '\n')
+        with open(self.paths[mode + '_times'], 'r') as r:
+            row = r.readline()
+            while row:
+                e0, e1, times, lengths = utils.parse_time_line(row, True)
+                l = [e0, e1]
+                t_vec = hour_weekly_call_distribution(times, lengths)
+                t_vec = [str(t) for t in t_vec]
+                w.write(' '.join(l + t_vec) + '\n')
+                row = r.readline()
+        w.close()
+
+    def hourly_weighted_average(self, var_df, var_name):
+        df = pd.read_table(self.paths['week_vec_call'], sep=' ')
+        df = pd.merge(var_df, df, on=['0', '1'])
+        var = np.array(df[var_name])
+        del df['0']
+        del df['1']
+        del df[var_name]
+        av = [np.average(var, weights=df.iloc[:, i]) for i in range(df.shape[1])]
+        return av
+
+
+
     def get_stats(self, mode='call'):
 
         assert mode in ['call', 'sms'], "mode must be either 'call' or 'sms'"
