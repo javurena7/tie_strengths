@@ -16,12 +16,15 @@ from scipy.stats import entropy
 logs_path = '../data/mobile_network/madrid/madrid_call_newid_log.txt'
 times_path = 'run/madrid_2504/times_dic.txt'
 
-def get_dates(logs_path):
-    cmd_list = ['head', '-1', logs_path]
+def get_dates(logs_paths):
+    """
+    Note: logs_paths must be a list
+    """
+    cmd_list = ['head', '-1', logs_paths[0]]
     p = subprocess.check_output(' '.join(cmd_list), shell=True)
     first_date = int(p.split()[0])
 
-    cmd_list = ['tail', '-1', logs_path]
+    cmd_list = ['tail', '-1', logs_paths[-1]]
     p = subprocess.check_output(' '.join(cmd_list), shell=True)
     last_date = int(p.split()[0])
 
@@ -44,7 +47,7 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
 def awk_total_calls(logs_path, output_path):
     main_awk = "{($5 > $3) ? p = $3 FS $5 : p = $5 FS $3; print p}"
     main_awk_rearrange = "{if($2 != $3) print $2, $3, $1}"
-    cmd_list = ["awk", "'", main_awk, "'", logs_path , "| sort | uniq -c |", "awk", "'", main_awk_rearrange, "'",">", output_path]
+    cmd_list = ["awk", "'", main_awk, "'"] + logs_path +["| sort | uniq -c |", "awk", "'", main_awk_rearrange, "'",">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
@@ -80,6 +83,7 @@ def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
 
 def awk_tmp_times(logs_path, tmp_file, run_path):
     """
+    NOTE: logs_path must be a list of log_paths
     Use awk to obtain a file with call timestamps in the format:
         id_1 id_2 ts_1 ts_2 ... ts_n
     where id_1 is the min id of the edge, and id_2 is the max id of the edge, and ts_i is the timestamp for the i-th call between id_1 and id_2
@@ -88,7 +92,7 @@ def awk_tmp_times(logs_path, tmp_file, run_path):
     add_tmp_file = os.path.join(run_path, "add_tmp_times_file.txt")
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
     main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 FS $3 FS $5: p = $4 FS $2 FS $1 FS $3 FS $5; print p}"
-    cmd_list = ["awk", "'", main_awk, "'", logs_path, ">", tmp_file]
+    cmd_list = ["awk", "'", main_awk, "'" ] + logs_path + [">", tmp_file]
     print(' '.join(cmd_list))
     p1 = subprocess.Popen(' '.join(cmd_list), shell=True)
     p1.wait()
@@ -101,9 +105,10 @@ def awk_tmp_times(logs_path, tmp_file, run_path):
 def awk_node_call_lengths(tmp_file, output_path, type_i=3, clr_i=2, cle_i=4, cl_len=5):
     """
     Create a file with the total file lenght nodes
+    tmp_file must be in list format
     """
     main_awk = "{if ($%d == 2) {if (a[$%d]) a[$%d] += int(sqrt($%d^2)); else a[$%d] = int(sqrt($%d^2)); if (a[$%d]) a[$%d] += int(sqrt($%d^2)); else a[$%d] = int(sqrt($%d^2));}} END {for (i in a) print i, a[i];}" % (type_i, clr_i, clr_i, cl_len, clr_i, cl_len, cle_i, cle_i, cl_len, cle_i, cl_len)
-    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
+    cmd_list = ["awk", "'", main_awk, "'"] + tmp_file + [">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
@@ -590,9 +595,13 @@ def km_residual_intervals(x, method='km', max_date=1177970399.):
     return mu
 
 def inter_event_times(x, end, start, method='km'):
+    """
+    Obtains inter-event time estimators in terms of days
 
+    """
     c_norm = 60*60*24.
-    estimator = events.IntereventTimeEstimator((end-start)/c_norm, mode='censorall')
+    last = (end - start)/c_norm
+    estimator = events.IntereventTimeEstimator(last, mode='censorall')
     x = [(t - start)/c_norm for t in x]
     estimator.add_time_seq(x)
     mu = estimator.estimate_moment(1, method)
@@ -612,8 +621,14 @@ def inter_event_times(x, end, start, method='km'):
         burst_c = (np.sqrt(n+1)*r - np.sqrt(n-1))/((np.sqrt(n+1)-2)*r + np.sqrt(n-1))
     except:
         burst_c = np.nan
-
-    return [mu, sigma, burst, burst_c]
+    # RELATIVE FRESHNESS
+    try:
+        r_fresh = (last - x[-1])/mu
+    except:
+        r_fresh = np.inf
+    # AGE OF TIE
+    age_tie = last - x[0]
+    return [mu, sigma, burst, burst_c, r_fresh, age_tie]
 
 
 def km_burstiness(x, method='km', max_date=1177970399.):

@@ -26,6 +26,9 @@ def write_logs(msg, path):
 
 class TieStrengths(object):
     def __init__(self, logs_path, run_path, kaplan=True, extended_logs_path=None, delta=3600):
+        """
+        Note: logs_path and extended_logs_paths must be in list format ([path], or [p1, p2, ...])
+        """
         if not os.path.exists(run_path):
             os.makedirs(run_path)
 
@@ -44,10 +47,11 @@ class TieStrengths(object):
             f.write('running on ' + run_path + ' \n')
         write_logs('-------------\n', self.paths['status'])
 
-#### Create files for temporal data
+    #### Create files for temporal data
         rm = False
         # Create temporal file from logs
-        if not all([os.path.isfile(self.paths['full_times_dict']), os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
+        if not all([os.path.isfile(self.paths['full_times_dict']), \
+                os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
             awk_tmp_times(self.paths['logs'], tmp_file, run_path)
             rm = True
         # Create file with times of contact for each edge
@@ -75,20 +79,21 @@ class TieStrengths(object):
 
         # Obtain extended overlap
         if extended_logs_path is not None:
-            self.paths['extended_logs'] = os.path.join(extended_logs_path)
+            self.paths['extended_logs'] = extended_logs_path
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
             self.paths['neighbors'] = os.path.join(run_path, 'extended_neighbors.txt')
 
-            self.paths['node_lens'] = os.path.join(run_path, 'extended_node_lens.txt') #total call lens (including non company users)
+            self.paths['node_lens'] = os.path.join(run_path, 'extended_node_lens.txt')
+            #total call lens (including non company users)
             if not os.path.isfile(self.paths['extended_net']):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Creating extended net... \n', self.paths['status'])
             if not os.path.isfile(self.paths['overlap']):
                 write_logs('Obtaining net overlap... \n', self.paths['status'])
                 write_logs('\t Reading edges... \n', self.paths['status'])
-                net_ext = read_edgelist(self.paths['extended_net'])  #netio.loadNet(self.paths['extended_net'])
+                net_ext = read_edgelist(self.paths['extended_net'])
                 write_logs('\t Calculating overlap... \n', self.paths['status'])
                 at.net_overlap(net_ext, output_path=self.paths['overlap'], alt_net_path=self.paths['net'])
                 write_logs('\t Done. \n', self.paths['status'])
@@ -119,7 +124,6 @@ class TieStrengths(object):
         if not os.path.isfile(self.paths['neighbors']):
             print('Obtaining neighbors')
             get_neighbors(self.paths['overlap'], self.paths['degrees'], self.paths['neighbors'])
-        #"""
 
         self.run_path = run_path
         self.delta = delta
@@ -159,7 +163,6 @@ class TieStrengths(object):
         return av
 
 
-
     def get_stats(self, mode='call'):
 
         assert mode in ['call', 'sms'], "mode must be either 'call' or 'sms'"
@@ -175,7 +178,7 @@ class TieStrengths(object):
             colnames.extend(len_stats)
         unif_stats = [mode[0] + '_uts_' + i for i in ['mu', 'sig', 'sig0', 'logt']]
         colnames.extend(unif_stats)
-        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'bur_c_na','mu_km', 'sig_km', 'bur_km', 'bur_c_km']]
+        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'bur_c_na', 'rfsh_na', 'age_na','mu_km', 'sig_km', 'bur_km', 'bur_c_km', 'rfsh_km' , 'age_km']]
         colnames.extend(iet_names)
         colnames.append(mode[0] + '_brtrn')
         w.write(' '.join(colnames) + '\n')
