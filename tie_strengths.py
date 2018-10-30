@@ -172,12 +172,14 @@ class TieStrengths(object):
 
         colnames = ['0', '1']
         week_stats = [mode[0] + '_wkn_' + str(i) for i in range(12)]; week_stats.append(mode[0] + '_wkn_t')
-        colnames.extend(week_stats)
+        colnames.append('c_wkn_t') #TODO: remove this, this is for a special case where we dont have weekly call distribution
+        #colnames.extend(week_stats)
         if mode == 'call':
             len_stats = [mode[0] + '_wkl_' + str(i) for i in range(12)]; len_stats.append(mode[0] + '_wkl_l')
-            colnames.extend(len_stats)
+            colnames.append('c_wkl_l') #TODO: remove this, this is for a special case where we dont have weekly call distribution
+            #colnames.extend(len_stats)
         unif_stats = [mode[0] + '_uts_' + i for i in ['mu', 'sig', 'sig0', 'logt']]
-        colnames.extend(unif_stats)
+        #colnames.extend(unif_stats)
         iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'bur_c_na', 'rfsh_na', 'age_na','mu_km', 'sig_km', 'bur_km', 'bur_c_km', 'rfsh_km' , 'age_km']]
         colnames.extend(iet_names)
         colnames.append(mode[0] + '_brtrn')
@@ -187,12 +189,16 @@ class TieStrengths(object):
             while row:
                 if mode=='call':
                     e0, e1, times, lengths = utils.parse_time_line(row, True)
-                    l = [e0, e1]
-                    lengths = [ln + 1 for ln in lengths] #Some call lengths are zero
-                    week_stats, len_stats = weekday_call_stats(times, lengths)
-                    l.extend(week_stats); l.extend(len_stats)
-                    unif_call_stats = uniform_time_statistics(times, self.first_date, self.last_date, lengths)
-                    l.extend(unif_call_stats)
+                    l = [e0, e1] 
+                    n_calls = len(times) #TODO: remove
+                    lens = sum(lengths) + 1 #TODO: remove
+                    l.append(n_calls) #TODO: remove
+                    l.append(lens) #TODO: remove
+                    #lengths = [ln + 1 for ln in lengths] #Some call lengths are zero
+                    #week_stats, len_stats = weekday_call_stats(times, lengths)
+                    #l.extend(week_stats); l.extend(len_stats)
+                    #unif_call_stats = uniform_time_statistics(times, self.first_date, self.last_date, lengths)
+                    #l.extend(unif_call_stats)
                 elif mode == 'sms':
                     e0, e1, times = utils.parse_time_line(row, False)
                     l = [e0, e1]
