@@ -94,3 +94,13 @@ def plot_overlap_rank_linbin(df, factor=100, limit=8000):
     fig.savefig(run_path + 'overlap_rank_calls.png')
     return fig, ax
 
+
+"""
+import pandas as pd
+import matplotlib.pyplot as plt; plt.ion()
+from tie_strengths import create_plots as cp
+from tie_strengths import plots
+run_path = 'data/full_run/'
+df = pd.read_table(run_path + 'full_df_sample.txt', sep=' ')
+"""i
+
