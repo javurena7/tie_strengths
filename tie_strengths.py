@@ -189,7 +189,7 @@ class TieStrengths(object):
             while row:
                 if mode=='call':
                     e0, e1, times, lengths = utils.parse_time_line(row, True)
-                    l = [e0, e1] 
+                    l = [e0, e1]
                     n_calls = len(times) #TODO: remove
                     lens = sum(lengths) + 1 #TODO: remove
                     l.append(n_calls) #TODO: remove
@@ -210,7 +210,7 @@ class TieStrengths(object):
                 if len(times) > 1:
                     iet_na = inter_event_times(times, self.last_date, self.first_date, method='naive')
                 else:
-                    iet_na = [np.nan, np.nan, np.nan]
+                    iet_na = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                 l.extend(iet_na)
 
                 iet_km = inter_event_times(times, self.last_date, self.first_date, method='km')

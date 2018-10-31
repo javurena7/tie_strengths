@@ -151,21 +151,23 @@ def plot_overlap_difference(simple, extended, bins=35):
 
 
 def loglogheatmap(x, y, z, factor_x=1.5, factor_y=1.45, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$\bar{\tau}$ (days)', title='Overlap as a function of and Number of Calls and Inter-event Time\n' + r'$\langle O | w, \bar{\tau} \rangle$'):
-
+    x = x+1
+    y = y+1
     bins_x = binner.Bins(float, min(x), max(x), 'log', factor_x)
-    bins_y = binner.Bins(float, min(y) + .5, max(y), 'log', factor_y)
+    bins_y = binner.Bins(float, min(y), max(y), 'log', factor_y)
     bin_means, _, _, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
+    print(bin_means.shape)
     bin_means = np.nan_to_num(bin_means.T)
     extent = [bins_x.bin_limits[0], bins_x.bin_limits[-1], bins_y.bin_limits[0], bins_y.bin_limits[-1]]
     fig, ax = plt.subplots(1)
-    cax = ax.imshow(bin_means,  extent=extent, origin="lower")
-    x_ticks = np.linspace(bins_x.bin_limits[0], bins_x.bin_limits[-1],
-            len(bins_x.bin_limits))
-    ax.set_xticks(x_ticks)
+    cax = ax.imshow(bin_means, origin="lower") #extent=extent
+    #x_ticks = np.linspace(bins_x.bin_limits[0], bins_x.bin_limits[-1],
+    #        len(bins_x.bin_limits))
+    #ax.set_xticks(x_ticks)
     ax.set_xticklabels(np.int16(bins_x.bin_limits))
-    y_ticks = np.linspace(bins_y.bin_limits[0], bins_y.bin_limits[-1],
-            len(bins_y.bin_limits))
-    ax.set_yticks(y_ticks)
+    #y_ticks = np.linspace(bins_y.bin_limits[0], bins_y.bin_limits[-1],
+    #        len(bins_y.bin_limits))
+    #ax.set_yticks(y_ticks)
     ax.set_yticklabels(np.round(bins_y.bin_limits, 1))
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
@@ -230,7 +232,7 @@ def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (
     return fig, ax
 
 
-def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title=''):
+def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title='', arg='.'):
     if not fig:
         fig, ax = plt.subplots(1)
     p_cum, y_mean, sum_x = [], [], 0
@@ -244,5 +246,5 @@ def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel=
         sum_x += len(y_h)
         p_cum.append(sum_x/n)
         y_mean.append(np.mean(y_h))
-    ax.plot(p_cum, y_mean, '.', label=label)
+    ax.plot(p_cum, y_mean, arg, label=label)
     return fig, ax
