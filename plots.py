@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from verkko.binner import bins as binner
-from scipy.stats import binned_statistic, binned_statistic_2d
+from scipy.stats import binned_statistic, binned_statistic_2d, rankdata
 from scipy.optimize import leastsq
 
 def plot_powerlaw(values, main='', xlabel='', ylabel='', fig=None, ax=None, label=''):
@@ -228,6 +228,26 @@ def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (
     ax.set_title(title)
     fig.colorbar(cax)
     return fig, ax
+
+
+def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title=''):
+    if not fig:
+        fig, ax = plt.subplots(1)
+    p_cum, y_mean, sum_x = [], [], 0
+    n = float(len(x))
+    x = rankdata(x)/n
+    x_vals = np.linspace(0, 1 + 1/size, size)
+    for v0, v1 in zip(x_vals[:-1], x_vals[1:]):
+        ind_x = x < v1
+        ind_y = (x >= v0) & ind_x
+        y_h = y[ind_y]
+        sum_x += len(y_h)
+        p_cum.append(sum_x/n)
+        y_mean.append(np.mean(y_h))
+    ax.plot(p_cum, y_mean, '.')
+    return fig, ax
+
+
 
 def plot_cumul_dist(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title=''):
     """
