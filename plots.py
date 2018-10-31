@@ -244,31 +244,5 @@ def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel=
         sum_x += len(y_h)
         p_cum.append(sum_x/n)
         y_mean.append(np.mean(y_h))
-    ax.plot(p_cum, y_mean, '.')
+    ax.plot(p_cum, y_mean, '.', label=label)
     return fig, ax
-
-
-
-def plot_cumul_dist(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title=''):
-    """
-    Plot cumulative distribution of X versus average value of Y
-    """
-    x_vals = np.linspace(0.01, 1, size)
-    x_ind = np.argsort(x)
-    y_sort = [y[i] for i in x_ind]
-    mean_y = []
-    n = len(x)
-    for v in x_vals:
-        l = int(round(n*v))
-        mean_y.append(np.mean(y_sort[:l]))
-    if not fig:
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-    ax.scatter(x_vals, mean_y, label=label)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    ax.legend(loc=0)
-    return fig, ax
-
-

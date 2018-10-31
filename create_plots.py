@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt; plt.ion()
 from tie_strengths import create_plots as cp
 from tie_strengths import plots
 run_path = 'data/full_run/'
-df = pd.read_table(run_path + 'overlap_comparison_sample.txt', sep=' ')
+df = pd.read_table(run_path + 'overlap_comparison.txt', sep=' ')
 """
 def plot_overlap_histograms(df, n=70):
     fig, ax = plt.subplots(1)
@@ -24,9 +24,10 @@ def plot_overlap_histograms(df, n=70):
     ax.set_xlabel('Overlap')
     ax.set_title('Overlap distributions')
     ax.legend()
-    fig, ax = plot_overlap_histograms(100)
     fig.savefig(run_path + 'overlap_histograms.png')
     return fig, ax
+
+#fig, ax = plot_overlap_histograms(df)
 
 def plot_overlap_comparison(df, n=50):
     fig, ax = plt.subplots(1)
@@ -35,7 +36,6 @@ def plot_overlap_comparison(df, n=50):
     ax.set_xlabel('Within operator network overlap: \n' + r'$O_{op}$')
     ax.set_ylabel('Full network overlap: \n' + r'$\langle O_{full} | O_{op} \rangle$')
     ax.set_title('Within company overlap and \n full network overlap')
-    ax.legend()
     fig.savefig(run_path + 'overlap_comparison.png')
     return fig, ax
 
@@ -45,9 +45,20 @@ def plot_overlap_cumulative(df, size=100):
     ax.set_xlabel(r'$P_{>}(w)$')
     ax.set_ylabel(r'$\langle O | P_{>}(w) \rangle$')
     ax.set_title('Overlap as a function of cumulative distribution of number of calls')
-    ax.legend()
+    ax.legend(loc=0)
     fig.savefig(run_path + 'overlap_cumulative_calls.png')
     return fig, ax
+
+def plot_overlap_rank_cumulative(df, size=100):
+    fig, ax = plots.cumulative_distribution(df.w, rankdata(df.ovrl)/df.shape[0], label='Within Company Overlap')
+    fig, ax = plots.cumulative_distribution(df.w, rankdata(df.e_ovrl)/df.shape[0], label='Full network', fig=fig, ax=ax)
+    ax.set_xlabel(r'$P_{>}(w)$')
+    ax.set_ylabel(r'$\langle R(O) | P_{>}(w) \rangle$')
+    ax.set_title('Rank of overlap as a function of \n cumulative distribution of number of calls')
+    ax.legend(loc=0)
+    fig.savefig(run_path + 'overlap_rank_cumulative_calls.png')
+    return fig, ax
+
 
 def plot_overlap_logbin(df, factor=1.3, limit=8000):
     df = df[df.w < limit]
@@ -60,7 +71,18 @@ def plot_overlap_logbin(df, factor=1.3, limit=8000):
     fig.savefig(run_path + 'overlap_logbin_calls.png')
     return fig, ax
 
-def plot_overlap_linbin(df, factor=100, limit=8000):
+def plot_overlap_rank_logbin(df, factor=1.3, limit=8000, overlap_rank=True):
+    df = df[df.w < limit]
+    fig, ax = plots.log_bin_plot(df.w, rankdata(df.ovrl)/df.shape[0], factor, label='Within Company Overlap')
+    fig, ax = plots.log_bin_plot(df.w, rankdata(df.e_ovrl)/df.shape[0], factor, label='Full network', fig=fig, ax=ax)
+    ax.set_xlabel(r'$w$')
+    ax.set_ylabel(r'$\langle Rank(O) | w \rangle$')
+    ax.set_title('Rank of overlap as a function of number of calls')
+    ax.legend()
+    fig.savefig(run_path + 'overlap_rank_logbin_calls.png')
+    return fig, ax
+
+def plot_overlap_rank_linbin(df, factor=100, limit=8000):
     df = df[df.w < limit]
     w = rankdata(df.w)/df.shape[0]
     fig, ax = plots.lin_bin_plot(w, rankdata(df.ovrl)/df.shape[0], factor, label='Within Company Overlap', arg='.')
