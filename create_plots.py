@@ -132,6 +132,9 @@ def plot_iet_mean_cumulative(df):
     return fig, ax
 
 
+
+
+
 def plot_iet_bur(df, factor=50):
     idx = df.c_iet_bur_na.notnull()
     fig, ax = plots.lin_bin_plot(df.c_iet_bur_na[idx], df.ovrl[idx], factor, label='Naive')
@@ -164,6 +167,9 @@ def plot_iet_bur_cumulative(df, size=20, arg='-'):
     ax.set_title('Overlap as a function of cumulative burstiness')
     fig.savefig(run_path + 'bur_iet_cumulative.png')
     return fig, ax
+
+
+
 
 
 def plot_mu_sig_bur_na(df):
