@@ -178,7 +178,8 @@ class TieStrengths(object):
 
     def compare_node_daily_cicles(self):
         """
-        For each edge in the net, get the nodes daily cylces and compare them, also with the ties
+        For each edge in the net, get the nodes daily cylces and compare them via Jensen-Shannon Divergence, also with the tie distribution.
+        For nodes, compare outgoing calls, for node vs tie, compare outgoing VS whole tie (out and in)
         """
         self.paths['daily_cycles_comp'] = os.path.join(self.run_path, 'daily_cycles_comp.txt')
         # TODO: read dictionary of node-level out calls
@@ -189,14 +190,16 @@ class TieStrengths(object):
         with open(self.pahts['full_times_dic'], 'r') as r:
             e0, e1, times = utils.parse_time_line(row) #TODO: check if this line has extra info
             e0_distr, e1_distr = out_calls[e0], out_calls[e1]
-            out_call_div = jsd(e0_distr, e1_distr)
+            out_call_div = utils.jsd(e0_distr, e1_distr)
 
             distr = hour_daily_call_distribution(times)
-            e0_div = jsd(e0_distr, distr)
-            e1_div = jsd(e1_distr, distr)
+            e0_div = utils.jsd(e0_distr, distr)
+            e1_div = utils.jsd(e1_distr, distr)
 
+            line = list(e0, e1, out_call_div, e0_div, e1_div)
+            w.write(' '.join([str(l) for l in line]) + '\n')
+            row = r.readline()
         w.close()
-
 
 
     def hourly_weighted_average(self, var_df, var_name):

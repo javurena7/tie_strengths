@@ -173,6 +173,22 @@ def subset_edges(net, locs):
         i += 1
     return subs
 
+def jsd(X, Y):
+    """
+    Jensen-Shannon Divergence for discrete distributions x, y
+    """
+    Z = [.5*x + .5*y for x, y in zip(X, Y)]
+    return shannon_e(Z)- (.5*shannon_e(X) + .5*shannon_e(Y))
+
+def shannon_e(X):
+    s = 0.0
+    for x in X:
+        if x > 0:
+            s -= x*np.log(x)
+    return s
+
+
+
 
 if __name__=='__main__':
     # Obtain subset from the general file
