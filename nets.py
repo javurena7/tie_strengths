@@ -139,6 +139,16 @@ def awk_calls(tmp_file, output_path):
     p.wait()
 
 
+def awk_node_out_calls(log, output_path):
+    """
+    Create a file with all the out calls of each node. Used to compute daily patterns of people.
+    """
+    main_awk = "{if ($3==2) {if (a[$2]) a[$2]= a[$2] FS $1; else a[$2] = $1;}} END {for (i in a) print i FS a[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", log, ">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
+
+
 def remove_tmp(tmp_file):
     cmd_list = ['rm', tmp_file]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
@@ -217,6 +227,22 @@ def hour_weekly_call_distribution(x, lengths=None):
             vec[24*w + h] += length
         t = sum(vec) + 1.
     return [round(v/t, 4) for v in vec]
+
+
+def hour_daily_call_distribution(x):
+    """
+    Obtain the daily call distribution for each edge, binning by hour
+    input: timestamps
+
+    returns: vector with probability for each hour
+    """
+    dates = [dt.datetime.fromtimestamp(d) for d in x]
+    vec = [0] * 24
+    for date in dates:
+        h = date.hour
+        vec[h] += 1
+    return vec
+
 
 
 def weekday_call_stats(x, extra_information=None):
@@ -511,6 +537,21 @@ def number_of_bursty_trains(x, delta):
         return e
     else:
         return 1
+
+
+def bursty_train_stats(x, delta):
+    if len(x) > 1:
+        t = 0.0
+        e = 1
+        t_dist = [x[0]]
+        e_dist = []
+        for t0, t1 in zip(x[], x[]):
+            if t1 - t0 < delta:
+                e += 1
+            else:
+                e_dist.append(e)
+                e = 1
+                t_dist.append(t1)
 
 
 def read_timesdic(path, extra=False):

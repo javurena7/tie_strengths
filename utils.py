@@ -156,6 +156,13 @@ def parse_time_line(x, extra_information=False):
         times = [int(r) for r in x[2:]]
         return n1, n2, times
 
+def parse_time_line_for_node(x):
+    x = x.split(' ')
+    n = x[0]
+    times = [int(t) for t in x[1:]]
+    return n, times
+
+
 def subset_edges(net, locs):
     i = 0
     locs = set(locs)
