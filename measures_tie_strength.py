@@ -119,7 +119,7 @@ class TieStrengths(object):
             self.paths['neighbors'] = os.path.join(run_path, 'neighbors.txt')
             self.paths['node_lens'] = os.path.join(run_path, 'node_lens.txt') #total call lens (including non company users)
             if not os.path.isfile(self.paths['node_out_calls']):
-                awk_node_out_calls(self.paths['logs'], self.paths['node_out_calls.txt'])
+                awk_node_out_calls(self.paths['logs'], self.paths['node_out_calls'])
             if not os.path.isfile(self.paths['overlap']):
                 net = read_edgelist(self.paths['net'])
                 at.net_overlap(net, output_path=self.paths['overlap'])
@@ -171,7 +171,7 @@ class TieStrengths(object):
                 n, times = utils.parse_time_line_for_node(row)
                 t_vec = hour_daily_call_distribution(times)
                 t_vec = [str(t) for t in t_vec]
-                w.write(' '.join(n + t_vec) + '\n')
+                w.write(' '.join([n] + t_vec) + '\n')
                 row = r.readline()
         w.close()
 
@@ -182,23 +182,33 @@ class TieStrengths(object):
         For nodes, compare outgoing calls, for node vs tie, compare outgoing VS whole tie (out and in)
         """
         self.paths['daily_cycles_comp'] = os.path.join(self.run_path, 'daily_cycles_comp.txt')
-        # TODO: read dictionary of node-level out calls
-        out_calls = {}
+        out_calls = utils.txt_to_dict(self.paths['node_daily_distribution'])
         w = open(self.paths['daily_cycles_comp'], 'wb')
         colnames = ['e0', 'e1', 'out_call_div', 'e0_div', 'e1_div']
         w.write(' '.join(colnames) + '\n')
-        with open(self.pahts['full_times_dic'], 'r') as r:
-            e0, e1, times = utils.parse_time_line(row) #TODO: check if this line has extra info
-            e0_distr, e1_distr = out_calls[e0], out_calls[e1]
-            out_call_div = utils.jsd(e0_distr, e1_distr)
-
-            distr = hour_daily_call_distribution(times)
-            e0_div = utils.jsd(e0_distr, distr)
-            e1_div = utils.jsd(e1_distr, distr)
-
-            line = list(e0, e1, out_call_div, e0_div, e1_div)
-            w.write(' '.join([str(l) for l in line]) + '\n')
+        with open(self.paths['full_times_dict'], 'r') as r:
             row = r.readline()
+            while row:
+                e0, e1, times = utils.parse_time_line(row) #TODO: check if this line has extra info
+                try:
+                    e0_distr = out_calls[e0]
+                except KeyError:
+                    e0_distr = [0]*24
+
+                try:
+                    e1_distr = out_calls[e1]
+                except KeyError:
+                    e1_distr = [0]*24
+
+                out_call_div = utils.jsd(e0_distr, e1_distr)
+
+                distr = hour_daily_call_distribution(times)
+                e0_div = utils.jsd(e0_distr, distr)
+                e1_div = utils.jsd(e1_distr, distr)
+
+                line = [e0, e1, out_call_div, e0_div, e1_div]
+                w.write(' '.join([str(l) for l in line]) + '\n')
+                row = r.readline()
         w.close()
 
 

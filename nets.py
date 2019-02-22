@@ -139,12 +139,12 @@ def awk_calls(tmp_file, output_path):
     p.wait()
 
 
-def awk_node_out_calls(log, output_path):
+def awk_node_out_calls(logs_path, output_path):
     """
     Create a file with all the out calls of each node. Used to compute daily patterns of people.
     """
     main_awk = "{if ($3==2) {if (a[$2]) a[$2]= a[$2] FS $1; else a[$2] = $1;}} END {for (i in a) print i FS a[i];}"
-    cmd_list = ["awk", "'", main_awk, "'", log, ">", output_path]
+    cmd_list = ["awk", "'", main_awk, "'"] + logs_path + [">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
@@ -545,7 +545,7 @@ def bursty_train_stats(x, delta):
         e = 1
         t_dist = [x[0]]
         e_dist = []
-        for t0, t1 in zip(x[], x[]):
+        for t0, t1 in zip(x[:-1], x[:1]):
             if t1 - t0 < delta:
                 e += 1
             else:

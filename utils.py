@@ -163,6 +163,24 @@ def parse_time_line_for_node(x):
     return n, times
 
 
+def txt_to_dict(txt):
+    """
+    Parse a txt file, where the key is the first element of the row, and the values are the rest of the elements of the rows.
+    NOTE: transforms elements of values into ints
+    Used for reading the node-level time distribution
+    """
+
+
+    d = {}
+    with open(txt, 'r') as r:
+        row = r.readline()
+        while row:
+            x = row.split(' ')
+            d[x[0]] = [int(t) for t in x[1:]]
+            row = r.readline()
+    return d
+
+
 def subset_edges(net, locs):
     i = 0
     locs = set(locs)
