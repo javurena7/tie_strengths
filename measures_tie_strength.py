@@ -184,7 +184,7 @@ class TieStrengths(object):
         self.paths['daily_cycles_comp'] = os.path.join(self.run_path, 'daily_cycles_comp.txt')
         out_calls = utils.txt_to_dict(self.paths['node_daily_distribution'])
         w = open(self.paths['daily_cycles_comp'], 'wb')
-        colnames = ['e0', 'e1', 'out_call_div', 'e0_div', 'e1_div']
+        colnames = ['0', '1', 'out_call_div', 'e0_div', 'e1_div']
         w.write(' '.join(colnames) + '\n')
         with open(self.paths['full_times_dict'], 'r') as r:
             row = r.readline()
@@ -210,6 +210,30 @@ class TieStrengths(object):
                 w.write(' '.join([str(l) for l in line]) + '\n')
                 row = r.readline()
         w.close()
+
+    def get_bursty_stats(self):
+        """
+        Preeliminary:
+        bt_mu: mean number of events per bt
+        bt_sig: std of events per bt (strong signal)
+        bt_cv: cv of events per bt (strong signal)
+        bt_n: number of bursty trains (strongest signal)
+        bt_tmu: mean distribution of bursty trains in time (strong if abs(bt_mu - .5))
+        bt_tsig: std distribution of bt in time
+        bt_logt: test for uniformity of bt in time
+        """
+        w = open(os.path.join(self.run_path, 'bursty_train_stats.txt'), 'wb')
+        colnames = ['0', '1', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_n', 'bt_tmu', 'bt_tsig', 'bt_tsig1', 'bt_logt']
+        w.write(' '.join(colnames) + '\n')
+        with open(self.paths['full_times_dict'], 'r') as r:
+            row = r.readline()
+            while row:
+                e0, e1, times = utils.parse_time_line(row)
+                res = bursty_train_stats(times, 3600, self.first_date, self.last_date)
+                w.write(' '.join([e0, e1] + [str(round(l, 4)) for l in res]) + '\n')
+                row = r.readline()
+        w.close()
+
 
 
     def hourly_weighted_average(self, var_df, var_name):

@@ -539,19 +539,30 @@ def number_of_bursty_trains(x, delta):
         return 1
 
 
-def bursty_train_stats(x, delta):
+def bursty_train_stats(x, delta, start=None, end=None):
     if len(x) > 1:
-        t = 0.0
         e = 1
         t_dist = [x[0]]
         e_dist = []
-        for t0, t1 in zip(x[:-1], x[:1]):
+        for t0, t1 in zip(x[:-1], x[1:]):
             if t1 - t0 < delta:
                 e += 1
             else:
                 e_dist.append(e)
                 e = 1
                 t_dist.append(t1)
+        e_dist.append(e)
+    else:
+        t_dist = x
+        e_dist = [1]
+        mu = np.mean(e_dist)
+        std = np.std(e_dist)
+    res = [mu, std, std/mu, len(e_dist)]
+
+    if start is not None:
+        res += uniform_time_statistics(t_dist, start, end)
+
+    return res
 
 
 def read_timesdic(path, extra=False):
