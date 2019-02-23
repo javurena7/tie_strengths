@@ -646,6 +646,62 @@ def km_residual_intervals(x, method='km', max_date=1177970399.):
     mu = estimator.estimate_moment(1, method)
     return mu
 
+def iet_stats(x, end, start):
+    """
+    Function for obtaining data based on the sequence of events and the IET distribution
+    Returns:
+    mu = mean iet with KM
+    siggma = std iet with KM
+    burst = burstiness with KM
+    mu_r  = avg relay time with KM
+    r_frsh = relative freshness
+    age = age of tie
+    t_stab = temporal stability of the tie
+    memory = memory coefficient of the tie
+    """
+
+    c_norm = 60*60*24
+    last = (end - start)/c_norm
+    estimator = events.IntereventTimeEstimator(last, mode='censorall')
+    x = [(t - start)/c_norm for t in x]
+    estimator.add_time_seq(x)
+    mu = estimator.estimate_moment(1, 'km')
+    mu_na = estimator.estimate_moment(1, 'naive')
+
+    try:
+        mu2 = estimator.estimate_moment(2, 'km')
+        sigma = np.sqrt(mu2 - mu**2)
+    except:
+        mu2 = np.inf
+        sigma = np.inf
+
+    try:
+        burst = (sigma - mu)/(sigma + mu)
+    except:
+        burst = np.nan
+
+    try:
+        mu_r = (.5)*(mu2/mu)
+    except:
+        mu_r = np.inf
+
+    try:
+        r_frsh = (last - x[-1])/mu_na
+    except:
+        r_frsh = np.inf
+
+    age = x[0]
+    t_stab = x[-1] - x[0]
+
+    try:
+        m = memory_coefficient(x)
+    except:
+        m = np.nan
+
+    return [mu, sigma, burst, mu_r, r_frsh, age, t_stab, m]
+
+
+
 def inter_event_times(x, end, start, method='km'):
     """
     Obtains inter-event time estimators in terms of days
@@ -657,9 +713,12 @@ def inter_event_times(x, end, start, method='km'):
     x = [(t - start)/c_norm for t in x]
     estimator.add_time_seq(x)
     mu = estimator.estimate_moment(1, method)
+
     try:
-        sigma = np.sqrt(estimator.estimate_moment(2, method) - mu**2)
+        mu2 = estimator.estimate_moment(2, method)
+        sigma = np.sqrt(mu2 - mu**2)
     except:
+        mu2 = np.inf
         sigma = np.inf
 
     try:
@@ -668,19 +727,46 @@ def inter_event_times(x, end, start, method='km'):
         burst = np.nan
 
     try:
+        avg_relay = (.5)*(mu2/mu)
+    except:
+        avg_relay = np.inf
+
+    try:
         n = len(x)
         r = sigma/mu
         burst_c = (np.sqrt(n+1)*r - np.sqrt(n-1))/((np.sqrt(n+1)-2)*r + np.sqrt(n-1))
     except:
         burst_c = np.nan
     # RELATIVE FRESHNESS
+    mu_na = estimator.estimate_moment(1, 'naive')
     try:
-        r_fresh = (last - x[-1])/mu
+        r_fresh = (last - x[-1])/mu_na
     except:
         r_fresh = np.inf
     # AGE OF TIE
-    age_tie = last - x[0]
-    return [mu, sigma, burst, burst_c, r_fresh, age_tie]
+    age_tie = x[0]
+
+    # TEMPORAL STABILITY
+    temp_stab = x[-1] - x[0]
+
+    m = memory_coefficient(x)
+
+    return [mu, sigma, burst, burst_c, r_fresh, age_tie, temp_stab, avg_relay, m]
+
+def memory_coefficient(x):
+    """
+    Obtain the memory coefficient of the IETd
+    """
+
+    if len(x) > 2:
+        iets = [t1 - t0 for t0, t1 in zip(x[:-1], x[1:])]
+        mu0, sig0 = np.mean(iets[:-1]), np.std(iets[:-1])
+        mu1, sig1 = np.mean(iets[1:]), np.std(iets[1:])
+        m = sum([(t0 - mu0)*(t1 - mu1) for t0, t1 in zip(iets[:-1], iets[1:])])
+        return m/((len(iets) - 1)*sig0*sig1)
+    else:
+        return np.nan
+
 
 
 def km_burstiness(x, method='km', max_date=1177970399.):

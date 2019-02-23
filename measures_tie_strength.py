@@ -213,6 +213,8 @@ class TieStrengths(object):
 
     def get_bursty_stats(self):
         """
+        Stats for distribution of bursty trains (P(E), Numb of BTs, distr of BTs in time)
+
         Preeliminary:
         bt_mu: mean number of events per bt
         bt_sig: std of events per bt (strong signal)
@@ -234,7 +236,23 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
+    def get_ietd_stats(self):
+        """
+        Stats for IETd(P(E), Numb of BTs, distr of BTs in time)
 
+        Preeliminary:
+        """
+        w = open(os.path.join(self.run_path, 'ietd_stats.txt'), 'wb')
+        colnames = ['0', '1', 'mu', 'sig', 'b', 'mu_r', 'r_frsh', 'age', 't_stb', 'm']
+        w.write(' '.join(colnames) + '\n')
+        with open(self.paths['full_times_dict'], 'r') as r:
+            row = r.readline()
+            while row:
+                e0, e1, times = utils.parse_time_line(row)
+                res = iet_stats(times, self.last_date, self.first_date)
+                w.write(' '.join([e0, e1] + [str(round(l, 4)) for l in res]) + '\n')
+                row = r.readline()
+        w.close()
 
     def hourly_weighted_average(self, var_df, var_name):
         df = pd.read_table(self.paths['week_vec_call'], sep=' ')
@@ -263,7 +281,7 @@ class TieStrengths(object):
             #colnames.extend(len_stats)
         unif_stats = [mode[0] + '_uts_' + i for i in ['mu', 'sig', 'sig0', 'logt']]
         #colnames.extend(unif_stats)
-        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'bur_c_na', 'rfsh_na', 'age_na','mu_km', 'sig_km', 'bur_km', 'bur_c_km', 'rfsh_km' , 'age_km']]
+        iet_names = [mode[0] + '_iet_' + i for i in ['mu_na', 'sig_na', 'bur_na', 'bur_c_na', 'rfsh_na', 'age_na', 'temp_stab_na', 'mu_km', 'sig_km', 'bur_km', 'bur_c_km', 'rfsh_km' , 'age_km', 'temp_stab_km']]
         colnames.extend(iet_names)
         colnames.append(mode[0] + '_brtrn')
         w.write(' '.join(colnames) + '\n')
@@ -293,7 +311,7 @@ class TieStrengths(object):
                 if len(times) > 1:
                     iet_na = inter_event_times(times, self.last_date, self.first_date, method='naive')
                 else:
-                    iet_na = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+                    iet_na = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                 l.extend(iet_na)
 
                 iet_km = inter_event_times(times, self.last_date, self.first_date, method='km')
