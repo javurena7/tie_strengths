@@ -151,10 +151,10 @@ def parse_time_line(x, extra_information=False):
     if extra_information:
         times = [int(r) for r in x[2::2]]
         extra = [int(r) for r in x[3::2]]
-        return n1, n2, times, extra
+        return int(n1), int(n2), times, extra #TODO: check if this collapses if we use int or str
     else:
         times = [int(r) for r in x[2:]]
-        return n1, n2, times
+        return int(n1), int(n2), times
 
 def parse_time_line_for_node(x):
     x = x.split(' ')
@@ -190,6 +190,27 @@ def subset_edges(net, locs):
             subs.append(edge)
         i += 1
     return subs
+
+def active_limits(x, delta, start, end):
+    """
+Given a list of activation times, return the moment when links are either on or off
+
+    """
+    val = False
+    r = []
+    t = start
+    while t < end:
+        if t > x[0]:
+            val = ~val
+            r.append(int(val))
+            x.pop(0)
+            t = t + delta
+        else:
+            r.append(int(val))
+    return r
+
+
+
 
 def jsd(X, Y):
     """

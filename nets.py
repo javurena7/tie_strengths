@@ -206,6 +206,22 @@ def dict_elements(logs_path=logs_path, id_cols=(1,3), id_store=0, extra_id=None)
     return dic
 
 
+def get_active_times(x, last, delta=60*60*24*28):
+    """
+    For a sequence of timestamps, get the times when a link is active (with active defined as the last time of interction + delta
+    Returns:
+    sequence of start and end times
+    """
+    actives = [x[0]]
+    for t0, t1 in zip(x[:-1], x[1:]):
+        if t1 - t0 > delta:
+            actives.append(t0 + delta)
+            actives.append(t1)
+    if last - actives[-1] > delta:
+        actives.append(actives[-1] + delta)
+    return actives
+
+
 
 def hour_weekly_call_distribution(x, lengths=None):
     """
@@ -517,7 +533,6 @@ def read_edgelist(path):
     with open(path, 'r') as r:
         row = r.readline()
         while row:
-
             rs = row.split(' ')
             net[int(rs[0]), int(rs[1])] = np.float32(rs[2])
             row = r.readline()

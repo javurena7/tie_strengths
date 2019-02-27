@@ -30,7 +30,7 @@ def write_logs(msg, path):
         f.write(msg)
 
 class TieStrengths(object):
-    def __init__(self, logs_path, run_path, kaplan=True, extended_logs_path=None, delta=3600):
+    def __init__(self, logs_path, run_path, kaplan=True, extended_logs_path=None, delta=3600, overlap_delta=60*60*24*28):
         """
         Note: logs_path and extended_logs_paths must be in list format ([path], or [p1, p2, ...])
         """
@@ -47,6 +47,7 @@ class TieStrengths(object):
         self.paths['node_out_calls'] = os.path.join(run_path, 'node_out_calls.txt')
         self.first_date, self.last_date = get_dates(self.paths['logs'])
         self._obs = (self.last_date - self.first_date)/(60.*60*24)
+        self.overlap_delta = overlap_delta
 
         #"""
         with open(self.paths['status'], 'wb') as f:
@@ -263,6 +264,95 @@ class TieStrengths(object):
         del df[var_name]
         av = [np.average(var, weights=df.iloc[:, i]) for i in range(df.shape[1])]
         return av
+
+
+    def _get_active_times(self):
+        """
+        Obtain a file with start and end active times for each link
+        """
+
+        delta = self.overlap_delta
+        last_date = self.last_date
+        self.paths['active_times'] = os.path.join(self.run_path, 'active_times.txt')
+        w = open(self.paths['active_times'], 'wb')
+        with open(self.paths['full_times_dict'], 'r') as r:
+            row = r.readline()
+            while row:
+                e0, e1, times = utils.parse_time_line(row)
+                act = get_active_times(times, last_date, delta)
+                w_vec = [str(i) for i in [e0, e1] + act]
+                w.write(' '.join(w_vec) + '\n')
+                row = r.readline()
+        w.close()
+
+
+    def temporal_overlap(self):
+        """
+        Obtain measures of temporal overlap per link
+        """
+        delta_week = 60*60*24*7
+        if 'extended_net' in self.paths:
+            net = read_edgelist(self.paths['extended_net'])
+        else:
+            net = read_edgelist(self.paths['net'])
+
+        # TODO: add thing to check if this has run
+        #_get_active_times()
+        r = read_timesdic(self.paths['active_times'])
+        start = self.first_date #+ self.overlap_delta
+
+        # TODO: maybe use some sort of sampling for this part
+        w = open(os.path.join(self.run_path, 'temporal_overlap.txt'), 'wb')
+        for tie, times in r.iteritems():
+            a, b = tie
+            a_neighs = set(net[a])
+            a_neighs.discard(b)
+            b_neighs = set(net[b])
+            b_neighs.discard(a)
+            c_neighs = a_neighs.intersection(b_neighs)
+            neighs_t = []
+            common_neighs_t = []
+            all_time_common = 0.
+            some_time_common = 0.
+            no_time_common = 0.
+
+            for n in a_neighs:
+                edge = (min([a, n]), max([a, n]))
+                lims = r[edge]
+                neighs_t.append(utils.active_limits(lims, delta_week, start, self.last_date))
+
+            for n in b_neighs:
+                edge = (min([b, n]), max([b, n]))
+                lims = r[edge]
+                neighs_t.append(utils.active_limits(lims, delta_week, start, self.last_date))
+
+            for n in c_neighs:
+                edge = (min([b, n]), max([b, n]))
+                lims = r[edge]
+                b_edges = np.array(utils.active_limits(lims, delta_week, start, self.last_date))
+
+                edge = (min([a, n]), max([a, n]))
+                lims = r[edge]
+                a_edges = np.array(utils.active_limits(lims, delta_week, start, self.last_date))
+
+                common_time = b_edges * a_edges
+                common_neighs_t.append(common_time)
+                if all(common_time > 0):
+                    all_time_common += 1
+                elif any(common_time > 0):
+                    some_time_common += 1
+                else:
+                    no_time_common += 1
+                non_common_time = a_edges + b_edges - 2 * common_time
+                neighs_t.append(non_common_time)
+            import pdb; pdb.set_trace()
+            neighs_t = np.array(neighs_t).sum(0)
+            common_neighs_t = np.array(common_neighs_t).sum(0)
+            overlap_t = common_neighs_t / (neighs_t + common_neighs_t)
+            vec = [a, b, all_time_common, some_time_common, no_time_common]
+            w.write(' '.join(str(v) for v in vec) + '\n')
+        w.close()
+
 
     def get_stats(self, mode='call'):
 
