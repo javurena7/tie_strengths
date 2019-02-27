@@ -299,57 +299,63 @@ class TieStrengths(object):
         # TODO: add thing to check if this has run
         #_get_active_times()
         r = read_timesdic(self.paths['active_times'])
-        start = self.first_date #+ self.overlap_delta
+        start = self.first_date + self.overlap_delta
 
         # TODO: maybe use some sort of sampling for this part
+
         w = open(os.path.join(self.run_path, 'temporal_overlap.txt'), 'wb')
+        ts = np.arange(start + delta_week- 1, self.last_date + 1, delta_week)
         for tie, times in r.iteritems():
             a, b = tie
             a_neighs = set(net[a])
-            a_neighs.discard(b)
             b_neighs = set(net[b])
-            b_neighs.discard(a)
+
             c_neighs = a_neighs.intersection(b_neighs)
+            a_neighs.difference_update({b}.union(c_neighs))
+            b_neighs.difference_update({a}.union(c_neighs))
             neighs_t = []
             common_neighs_t = []
             all_time_common = 0.
             some_time_common = 0.
             no_time_common = 0.
 
-            for n in a_neighs:
-                edge = (min([a, n]), max([a, n]))
-                lims = r[edge]
-                neighs_t.append(utils.active_limits(lims, delta_week, start, self.last_date))
+            if len(c_neighs) > 0:
+                for n in a_neighs:
+                    edge = (min([a, n]), max([a, n]))
+                    lims = r[edge]
+                    neighs_t.append(utils.active_limits(lims, delta_week, self.last_date, ts))
 
-            for n in b_neighs:
-                edge = (min([b, n]), max([b, n]))
-                lims = r[edge]
-                neighs_t.append(utils.active_limits(lims, delta_week, start, self.last_date))
+                for n in b_neighs:
+                    edge = (min([b, n]), max([b, n]))
+                    lims = r[edge]
+                    neighs_t.append(utils.active_limits(lims, delta_week, self.last_date, ts))
 
-            for n in c_neighs:
-                edge = (min([b, n]), max([b, n]))
-                lims = r[edge]
-                b_edges = np.array(utils.active_limits(lims, delta_week, start, self.last_date))
+                for n in c_neighs:
+                    edge = (min([b, n]), max([b, n]))
+                    lims = r[edge]
+                    b_edges = np.array(utils.active_limits(lims, delta_week, self.last_date, ts))
+                    edge = (min([a, n]), max([a, n]))
+                    lims = r[edge]
+                    a_edges = np.array(utils.active_limits(lims, delta_week, self.last_date, ts))
+                    common_time = b_edges * a_edges
+                    common_neighs_t.append(common_time)
+                    if all(common_time > 0):
+                        all_time_common += 1
+                    elif any(common_time > 0):
+                        some_time_common += 1
+                    else:
+                        no_time_common += 1
+                    non_common_time = a_edges + b_edges - 2 * common_time
+                    neighs_t.append(non_common_time)
 
-                edge = (min([a, n]), max([a, n]))
-                lims = r[edge]
-                a_edges = np.array(utils.active_limits(lims, delta_week, start, self.last_date))
-
-                common_time = b_edges * a_edges
-                common_neighs_t.append(common_time)
-                if all(common_time > 0):
-                    all_time_common += 1
-                elif any(common_time > 0):
-                    some_time_common += 1
-                else:
-                    no_time_common += 1
-                non_common_time = a_edges + b_edges - 2 * common_time
-                neighs_t.append(non_common_time)
-            import pdb; pdb.set_trace()
-            neighs_t = np.array(neighs_t).sum(0)
-            common_neighs_t = np.array(common_neighs_t).sum(0)
-            overlap_t = common_neighs_t / (neighs_t + common_neighs_t)
-            vec = [a, b, all_time_common, some_time_common, no_time_common]
+                neighs_t = np.array(neighs_t)
+                neighs_t = neighs_t.sum(0)
+                common_neighs_t = np.array(common_neighs_t)
+                common_neighs_t = common_neighs_t.sum(0)
+                overlap_t = common_neighs_t / (neighs_t + common_neighs_t + 0.01)
+                vec = [a, b, all_time_common, some_time_common, no_time_common] + list(overlap_t)
+            else:
+                vec = [a, b] + [0] * (len(ts) + 3)
             w.write(' '.join(str(v) for v in vec) + '\n')
         w.close()
 

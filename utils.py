@@ -191,25 +191,29 @@ def subset_edges(net, locs):
         i += 1
     return subs
 
-def active_limits(x, delta, start, end):
+def active_limits(x, delta, end, ts):
     """
 Given a list of activation times, return the moment when links are either on or off
 
     """
     val = False
     r = []
-    t = start
-    while t < end:
-        if t > x[0]:
+    if len(x) < 1:
+        return [0] * len(ts)
+    x_lim = x.pop(0)
+
+    for t in ts:
+        if t > x_lim:
             val = ~val
-            r.append(int(val))
-            x.pop(0)
-            t = t + delta
+            r.append(-int(val))
+            try:
+                x_lim = x.pop(0)
+            except:
+                x_lim = []
         else:
-            r.append(int(val))
+            r.append(-int(val))
+        t = t + delta
     return r
-
-
 
 
 def jsd(X, Y):
