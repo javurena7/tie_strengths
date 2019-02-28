@@ -88,6 +88,7 @@ class TieStrengths(object):
         if extended_logs_path is not None:
             self.paths['extended_logs'] = extended_logs_path
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
+            self.pahts['extended_full_times'] = os.path.join(run_path, 'extended_full_times.txt')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
             self.paths['neighbors'] = os.path.join(run_path, 'extended_neighbors.txt')
@@ -100,6 +101,11 @@ class TieStrengths(object):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Obtaining node calls.')
                 awk_node_out_calls(self.paths['extended_logs'], self.paths['extended_node_out_calls.txt'])
+            if not os.path.isfile(self.paths['extended_full_times']):
+                awk_tmp_times(self.paths['extended_logs'], tmp_file, run_path)
+                awk_full_times(tmp_file, self.paths['extended_full_times'])
+                remove_tmp(tmp_file)
+
             if not os.path.isfile(self.paths['overlap']):
                 write_logs('Obtaining net overlap... \n', self.paths['status'])
                 write_logs('\t Reading edges... \n', self.paths['status'])
@@ -289,6 +295,13 @@ class TieStrengths(object):
     def temporal_overlap(self):
         """
         Obtain measures of temporal overlap per link
+        Example run:
+        TS = ts.TieStrengths(logs_path, run_path, overlap_delta=60*60*24*14)
+        TS._get_active_times()
+        TS.temporal_overlap()
+        df = pd.read_table('data/tmp_madrid/temporal_overlap.txt', sep=' ', header=None)
+
+        The notice that the first columns (obtained by overlap_delta, and within delta_week of each other) are biased bc of new years (hypothesis), and should be deleted
         """
         delta_week = 60*60*24*7
         if 'extended_net' in self.paths:
@@ -299,12 +312,13 @@ class TieStrengths(object):
         # TODO: add thing to check if this has run
         #_get_active_times()
         r = read_timesdic(self.paths['active_times'])
-        start = self.first_date + self.overlap_delta
+        start = self.first_date
 
         # TODO: maybe use some sort of sampling for this part
 
         w = open(os.path.join(self.run_path, 'temporal_overlap.txt'), 'wb')
-        ts = np.arange(start + delta_week- 1, self.last_date + 1, delta_week)
+        ts = np.arange(start + delta_week, self.last_date + 1, delta_week)
+        ts_range = range(len(ts))
         for tie, times in r.iteritems():
             a, b = tie
             a_neighs = set(net[a])
@@ -323,20 +337,20 @@ class TieStrengths(object):
                 for n in a_neighs:
                     edge = (min([a, n]), max([a, n]))
                     lims = r[edge]
-                    neighs_t.append(utils.active_limits(lims, delta_week, self.last_date, ts))
+                    neighs_t.append(utils.active_limits(lims, self.last_date, ts))
 
                 for n in b_neighs:
                     edge = (min([b, n]), max([b, n]))
                     lims = r[edge]
-                    neighs_t.append(utils.active_limits(lims, delta_week, self.last_date, ts))
+                    neighs_t.append(utils.active_limits(lims, self.last_date, ts))
 
                 for n in c_neighs:
                     edge = (min([b, n]), max([b, n]))
                     lims = r[edge]
-                    b_edges = np.array(utils.active_limits(lims, delta_week, self.last_date, ts))
+                    b_edges = np.array(utils.active_limits(lims, self.last_date, ts))
                     edge = (min([a, n]), max([a, n]))
                     lims = r[edge]
-                    a_edges = np.array(utils.active_limits(lims, delta_week, self.last_date, ts))
+                    a_edges = np.array(utils.active_limits(lims, self.last_date, ts))
                     common_time = b_edges * a_edges
                     common_neighs_t.append(common_time)
                     if all(common_time > 0):
@@ -353,9 +367,14 @@ class TieStrengths(object):
                 common_neighs_t = np.array(common_neighs_t)
                 common_neighs_t = common_neighs_t.sum(0)
                 overlap_t = common_neighs_t / (neighs_t + common_neighs_t + 0.01)
-                vec = [a, b, all_time_common, some_time_common, no_time_common] + list(overlap_t)
+                mean_ov = np.mean(overlap_t)
+                std_ov = np.std(overlap_t)
+                trend, _ = np.polyfit(ts_range, overlap_t, 1)
+                vec_int = [int(x) for x in [a, b, all_time_common, some_time_common, no_time_common]]
+                vec_dbl = [round(x, 4) for x in [mean_ov, std_ov, trend] + list(overlap_t)]
+                vec = vec_int + vec_dbl
             else:
-                vec = [a, b] + [0] * (len(ts) + 3)
+                vec = [a, b] + [0] * (len(ts) + 6)
             w.write(' '.join(str(v) for v in vec) + '\n')
         w.close()
 

@@ -217,8 +217,7 @@ def get_active_times(x, last, delta=60*60*24*28):
         if t1 - t0 > delta:
             actives.append(t0 + delta)
             actives.append(t1)
-    if last - actives[-1] > delta:
-        actives.append(actives[-1] + delta)
+    actives.append(x[-1] + delta)
     return actives
 
 

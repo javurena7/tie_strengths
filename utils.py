@@ -169,8 +169,6 @@ def txt_to_dict(txt):
     NOTE: transforms elements of values into ints
     Used for reading the node-level time distribution
     """
-
-
     d = {}
     with open(txt, 'r') as r:
         row = r.readline()
@@ -191,10 +189,10 @@ def subset_edges(net, locs):
         i += 1
     return subs
 
-def active_limits(x, delta, end, ts):
-    """
-Given a list of activation times, return the moment when links are either on or off
 
+def active_limits(x, end, ts):
+    """
+    Given a list of activation times, return the moment when links are either on or off
     """
     val = False
     r = []
@@ -212,7 +210,6 @@ Given a list of activation times, return the moment when links are either on or 
                 x_lim = []
         else:
             r.append(-int(val))
-        t = t + delta
     return r
 
 
@@ -222,6 +219,7 @@ def jsd(X, Y):
     """
     Z = [.5*x + .5*y for x, y in zip(X, Y)]
     return shannon_e(Z)- (.5*shannon_e(X) + .5*shannon_e(Y))
+
 
 def shannon_e(X):
     s = 0.0
