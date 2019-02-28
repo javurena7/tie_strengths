@@ -325,9 +325,11 @@ class TieStrengths(object):
         vec_names = ['0', '1', 'all_t_comm', 'some_t_comm', 'no_t_comm', 'ov_mean', 'ov_std', 'ov_trnd', 'ov_b0'] + ['t' + str(t) for t in ts_range]
         w.write(' '.join(vec_names) + '\n')
 
-        # TODO: maybe use some sort of sampling for this part
-        for tie, times in r.iteritems():
-            a, b = tie
+        net_iter = open(self.paths['net'], 'r')
+        nr = net_iter.readline()
+        while nr:
+            rs = nr.split(' ')
+            a, b = int(rs[0]), int(rs[1])
             a_neighs = set(net[a])
             b_neighs = set(net[b])
 
@@ -343,23 +345,26 @@ class TieStrengths(object):
             if len(c_neighs) > 0:
                 for n in a_neighs:
                     edge = (min([a, n]), max([a, n]))
-                    lims = list(r[edge])
+                    lims = list(r.get(edge, []))
                     neighs_t.append(utils.active_limits(lims, self.last_date, ts))
 
                 for n in b_neighs:
                     edge = (min([b, n]), max([b, n]))
-                    lims = list(r[edge])
+                    lims = list(r.get(edge, []))
                     neighs_t.append(utils.active_limits(lims, self.last_date, ts))
 
                 for n in c_neighs:
                     edge = (min([b, n]), max([b, n]))
-                    lims = list(r[edge])
+                    lims = list(r.get(edge, []))
                     b_edges = np.array(utils.active_limits(lims, self.last_date, ts))
+
                     edge = (min([a, n]), max([a, n]))
-                    lims = list(r[edge])
+                    lims = list(r.get(edge, []))
                     a_edges = np.array(utils.active_limits(lims, self.last_date, ts))
+
                     common_time = b_edges * a_edges
                     common_neighs_t.append(common_time)
+
                     if all(common_time > 0):
                         all_time_common += 1
                     elif any(common_time > 0):
@@ -383,7 +388,9 @@ class TieStrengths(object):
             else:
                 vec = [a, b] + [0] * (len(ts) + 7)
             w.write(' '.join(str(v) for v in vec) + '\n')
+            nr = net_iter.readline()
         w.close()
+        net_iter.close()
 
 
     def get_stats(self, mode='call'):
