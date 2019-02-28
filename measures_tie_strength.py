@@ -88,7 +88,7 @@ class TieStrengths(object):
         if extended_logs_path is not None:
             self.paths['extended_logs'] = extended_logs_path
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
-            self.pahts['extended_full_times_dict'] = os.path.join(run_path, 'extended_full_times.txt')
+            self.paths['extended_full_times_dict'] = os.path.join(run_path, 'extended_full_times.txt')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
             self.paths['neighbors'] = os.path.join(run_path, 'extended_neighbors.txt')
