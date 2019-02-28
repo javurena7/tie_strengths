@@ -88,7 +88,7 @@ class TieStrengths(object):
         if extended_logs_path is not None:
             self.paths['extended_logs'] = extended_logs_path
             self.paths['extended_net'] = os.path.join(run_path, 'extended_net.edg')
-            self.pahts['extended_full_times'] = os.path.join(run_path, 'extended_full_times.txt')
+            self.pahts['extended_full_times_dict'] = os.path.join(run_path, 'extended_full_times.txt')
             self.paths['overlap'] = os.path.join(run_path, 'extended_overlap.edg')
             self.paths['degrees'] = os.path.join(run_path, 'extended_degrees.txt')
             self.paths['neighbors'] = os.path.join(run_path, 'extended_neighbors.txt')
@@ -281,14 +281,18 @@ class TieStrengths(object):
         last_date = self.last_date
         self.paths['active_times'] = os.path.join(self.run_path, 'active_times.txt')
         w = open(self.paths['active_times'], 'wb')
-        with open(self.paths['full_times_dict'], 'r') as r:
+        if 'extended_full_times_dict' in self.paths:
+            r = open(self.paths['extended_full_times_dict'], 'r')
+        else:
+            r = open(self.paths['full_times_dict'], 'r')
+        row = r.readline()
+        while row:
+            e0, e1, times = utils.parse_time_line(row)
+            act = get_active_times(times, last_date, delta)
+            w_vec = [str(i) for i in [e0, e1] + act]
+            w.write(' '.join(w_vec) + '\n')
             row = r.readline()
-            while row:
-                e0, e1, times = utils.parse_time_line(row)
-                act = get_active_times(times, last_date, delta)
-                w_vec = [str(i) for i in [e0, e1] + act]
-                w.write(' '.join(w_vec) + '\n')
-                row = r.readline()
+        r.close()
         w.close()
 
 
@@ -314,11 +318,14 @@ class TieStrengths(object):
         r = read_timesdic(self.paths['active_times'])
         start = self.first_date
 
-        # TODO: maybe use some sort of sampling for this part
-
-        w = open(os.path.join(self.run_path, 'temporal_overlap.txt'), 'wb')
+        self.paths['temporal_overlap'] = os.path.join(self.run_path, 'temporal_overlap_' + str(self.overlap_delta) + '.txt')
+        w = open(self.paths['temporal_overlap'], 'wb')
         ts = np.arange(start + delta_week, self.last_date + 1, delta_week)
         ts_range = range(len(ts))
+        vec_names = ['0', '1', 'all_t_comm', 'some_t_comm', 'no_t_comm', 'ov_mean', 'ov_std', 'ov_trnd', 'ov_b0'] + ['t' + str(t) for t in ts_range]
+        w.write(' '.join(vec_names) + '\n')
+
+        # TODO: maybe use some sort of sampling for this part
         for tie, times in r.iteritems():
             a, b = tie
             a_neighs = set(net[a])
@@ -336,20 +343,20 @@ class TieStrengths(object):
             if len(c_neighs) > 0:
                 for n in a_neighs:
                     edge = (min([a, n]), max([a, n]))
-                    lims = r[edge]
+                    lims = list(r[edge])
                     neighs_t.append(utils.active_limits(lims, self.last_date, ts))
 
                 for n in b_neighs:
                     edge = (min([b, n]), max([b, n]))
-                    lims = r[edge]
+                    lims = list(r[edge])
                     neighs_t.append(utils.active_limits(lims, self.last_date, ts))
 
                 for n in c_neighs:
                     edge = (min([b, n]), max([b, n]))
-                    lims = r[edge]
+                    lims = list(r[edge])
                     b_edges = np.array(utils.active_limits(lims, self.last_date, ts))
                     edge = (min([a, n]), max([a, n]))
-                    lims = r[edge]
+                    lims = list(r[edge])
                     a_edges = np.array(utils.active_limits(lims, self.last_date, ts))
                     common_time = b_edges * a_edges
                     common_neighs_t.append(common_time)
@@ -369,12 +376,12 @@ class TieStrengths(object):
                 overlap_t = common_neighs_t / (neighs_t + common_neighs_t + 0.01)
                 mean_ov = np.mean(overlap_t)
                 std_ov = np.std(overlap_t)
-                trend, _ = np.polyfit(ts_range, overlap_t, 1)
+                trend, b0 = np.polyfit(ts_range, overlap_t, 1)
                 vec_int = [int(x) for x in [a, b, all_time_common, some_time_common, no_time_common]]
-                vec_dbl = [round(x, 4) for x in [mean_ov, std_ov, trend] + list(overlap_t)]
+                vec_dbl = [round(x, 4) for x in [mean_ov, std_ov, trend, b0] + list(overlap_t)]
                 vec = vec_int + vec_dbl
             else:
-                vec = [a, b] + [0] * (len(ts) + 6)
+                vec = [a, b] + [0] * (len(ts) + 7)
             w.write(' '.join(str(v) for v in vec) + '\n')
         w.close()
 
