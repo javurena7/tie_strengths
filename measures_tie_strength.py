@@ -117,7 +117,7 @@ class TieStrengths(object):
                 awk_degrees(self.paths['extended_net'], self.paths['degrees'])
             if not os.path.isfile(self.paths['node_lens']):
                 print('Creating node lens dictionary... \n')
-                awk_node_call_lengths(self.paths['extended_logs'], self.paths['node_lens'], type_i=4, clr_i=3, cle_i=5, cl_len=6)
+                awk_node_call_lengths(self.paths['extended_logs'], self.paths['node_lens'], type_i=3, clr_i=2, cle_i=4, cl_len=5)
 
         # Obtain basic overlap
         else:
