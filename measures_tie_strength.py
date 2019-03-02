@@ -101,9 +101,9 @@ class TieStrengths(object):
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
                 write_logs('Obtaining node calls.')
                 awk_node_out_calls(self.paths['extended_logs'], self.paths['extended_node_out_calls.txt'])
-            if not os.path.isfile(self.paths['extended_full_times']):
+            if not os.path.isfile(self.paths['extended_full_times_dict']):
                 awk_tmp_times(self.paths['extended_logs'], tmp_file, run_path)
-                awk_full_times(tmp_file, self.paths['extended_full_times'])
+                awk_full_times(tmp_file, self.paths['extended_full_times_dict'])
                 remove_tmp(tmp_file)
 
             if not os.path.isfile(self.paths['overlap']):
