@@ -569,8 +569,9 @@ def bursty_train_stats(x, delta, start=None, end=None):
     else:
         t_dist = x
         e_dist = [1]
-        mu = np.mean(e_dist)
-        std = np.std(e_dist)
+    
+    mu = np.mean(e_dist)
+    std = np.std(e_dist)
     res = [mu, std, std/mu, len(e_dist)]
 
     if start is not None:
