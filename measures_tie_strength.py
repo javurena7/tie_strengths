@@ -99,8 +99,11 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['extended_net']):
                 write_logs('Creating extended net... \n', self.paths['status'])
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
-                write_logs('Obtaining node calls.', self.paths['status'])
+
+            if not os.path.isfile(self.paths['node_out_calls']):
+		write_logs('Obtaining node calls.', self.paths['status'])
                 awk_node_out_calls(self.paths['extended_logs'], self.paths['node_out_calls'])
+
             if not os.path.isfile(self.paths['extended_full_times_dict']):
                 awk_tmp_times(self.paths['extended_logs'], tmp_file, run_path)
                 awk_full_times(tmp_file, self.paths['extended_full_times_dict'])
