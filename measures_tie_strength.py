@@ -99,8 +99,8 @@ class TieStrengths(object):
             if not os.path.isfile(self.paths['extended_net']):
                 write_logs('Creating extended net... \n', self.paths['status'])
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
-                write_logs('Obtaining node calls.')
-                awk_node_out_calls(self.paths['extended_logs'], self.paths['extended_node_out_calls.txt'])
+                write_logs('Obtaining node calls.', self.paths['status'])
+                awk_node_out_calls(self.paths['extended_logs'], self.paths['node_out_calls'])
             if not os.path.isfile(self.paths['extended_full_times_dict']):
                 awk_tmp_times(self.paths['extended_logs'], tmp_file, run_path)
                 awk_full_times(tmp_file, self.paths['extended_full_times_dict'])
@@ -183,7 +183,7 @@ class TieStrengths(object):
         w.close()
 
 
-    def compare_node_daily_cicles(self):
+    def compare_node_daily_cycles(self):
         """
         For each edge in the net, get the nodes daily cylces and compare them via Jensen-Shannon Divergence, also with the tie distribution.
         For nodes, compare outgoing calls, for node vs tie, compare outgoing VS whole tie (out and in)
@@ -239,7 +239,7 @@ class TieStrengths(object):
             while row:
                 e0, e1, times = utils.parse_time_line(row)
                 res = bursty_train_stats(times, 3600, self.first_date, self.last_date)
-                w.write(' '.join([e0, e1] + [str(round(l, 4)) for l in res]) + '\n')
+                w.write(' '.join([str(round(l, 4)) for l in [e0, e1] + res]) + '\n')
                 row = r.readline()
         w.close()
 
@@ -257,7 +257,7 @@ class TieStrengths(object):
             while row:
                 e0, e1, times = utils.parse_time_line(row)
                 res = iet_stats(times, self.last_date, self.first_date)
-                w.write(' '.join([e0, e1] + [str(round(l, 4)) for l in res]) + '\n')
+                w.write(' '.join([str(round(l, 4)) for l in [e0, e1] + res]) + '\n')
                 row = r.readline()
         w.close()
 
