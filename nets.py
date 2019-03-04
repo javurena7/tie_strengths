@@ -130,7 +130,6 @@ def awk_sms(tmp_file, output_path):
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
-
 def awk_calls(tmp_file, output_path):
 
     main_awk = "{if ($4 == 2) {if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3 FS $5; else a[$1 FS $2] = $3 FS $5;}} END {for (i in a) print i, a[i];}"
@@ -138,6 +137,12 @@ def awk_calls(tmp_file, output_path):
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
+def awk_call_times(tmp_file, output_path):
+
+    main_awk = "{if ($4 == 2) {if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3; else a[$1 FS $2] = $3;}} END {for (i in a) print i, a[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
 
 def awk_node_out_calls(logs_path, output_path):
     """
@@ -148,6 +153,14 @@ def awk_node_out_calls(logs_path, output_path):
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
+def awk_ext_node_out_calls(nodes_path, extended_logs_path, output_path):
+    """
+    Create a file with all the out calls of each node based on an existing list of nodes. Used to compute daily patterns of a list of people with full logs.
+    """
+    main_awk = "FNR==NR{a[$1] = 0; next}{if ($3 == 2) {if (a[$2] == 0) a[$2] = $1; else a[$2] = a[$2] FS $1;}} END {for (i in a) if (a[i] != 0) print i, a[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", nodes_path] + extended_logs_path + [">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
 
 def remove_tmp(tmp_file):
     cmd_list = ['rm', tmp_file]
@@ -569,7 +582,7 @@ def bursty_train_stats(x, delta, start=None, end=None):
     else:
         t_dist = x
         e_dist = [1]
-    
+
     mu = np.mean(e_dist)
     std = np.std(e_dist)
     res = [mu, std, std/mu, len(e_dist)]
