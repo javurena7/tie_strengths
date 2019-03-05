@@ -159,7 +159,12 @@ def parse_time_line(x, extra_information=False):
 def parse_time_line_for_node(x):
     x = x.split(' ')
     n = x[0]
-    times = [int(t) for t in x[1:]]
+    try:
+        times = [int(t) for t in x[1:]]
+    except Exception as e:
+        print("Node time line not found")
+        print(x)
+        times = []
     return n, times
 
 
