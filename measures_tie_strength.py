@@ -245,7 +245,7 @@ class TieStrengths(object):
             while row:
                 e0, e1, times = utils.parse_time_line(row)
                 res = bursty_train_stats(times, 3600, self.first_date, self.last_date)
-                w.write(' '.join([str(round(l, 4)) for l in [e0, e1] + res]) + '\n')
+                w.write(' '.join([str(e0), str(e1)] + [str(round(l, 4)) for l in res]) + '\n')
                 row = r.readline()
         w.close()
 
@@ -263,7 +263,7 @@ class TieStrengths(object):
             while row:
                 e0, e1, times = utils.parse_time_line(row)
                 res = iet_stats(times, self.last_date, self.first_date)
-                w.write(' '.join([str(round(l, 4)) for l in [e0, e1] + res]) + '\n')
+                w.write(' '.join([str(e0), str(e1)] + [str(round(l, 4)) for l in res]) + '\n')
                 row = r.readline()
         w.close()
 
