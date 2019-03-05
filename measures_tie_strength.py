@@ -103,6 +103,7 @@ class TieStrengths(object):
             self.paths['node_lens'] = os.path.join(run_path, 'extended_node_lens.txt')
             #total call lens (including non company users)
             if not os.path.isfile(self.paths['extended_net']):
+		print('Obtaining extended net')
                 write_logs('Creating extended net... \n', self.paths['status'])
                 awk_total_calls(self.paths['extended_logs'], self.paths['extended_net'])
 

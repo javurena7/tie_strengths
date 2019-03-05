@@ -45,9 +45,10 @@ def total_calls(logs_path=logs_path, id_cols=(1,3)):
     return  net
 
 def awk_total_calls(logs_path, output_path):
-    main_awk = "{($5 > $3) ? p = $3 FS $5 : p = $5 FS $3; print p}"
+    main_awk = "{($4 > $2) ? p = $2 FS $4 : p = $4 FS $2; print p}"
     main_awk_rearrange = "{if($2 != $3) print $2, $3, $1}"
     cmd_list = ["awk", "'", main_awk, "'"] + logs_path +["| sort | uniq -c |", "awk", "'", main_awk_rearrange, "'",">", output_path]
+    print(' '.join(cmd_list))
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
