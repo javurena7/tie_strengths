@@ -92,21 +92,21 @@ def awk_tmp_times(logs_path, tmp_file, run_path, only_event_type=None):
     only_event_type: returns only calls (for value 2), only SMs (for value 5) or both (None)
     """
 
-    add_tmp_file = os.path.join(run_path, "add_tmp_times_file.txt")
+    # add_tmp_file = os.path.join(run_path, "add_tmp_times_file.txt")
     # First, use awk to resort logs into id_1, id_2, timestamp; where id_1 is the min id, and id_2 is the max
     if only_event_type is not None:
-        main_awk = "{if ($3 == " + only_event_type + ") {($4 > $2) ? p = $2 FS $4 FS $1 FS $3 FS $5: p = $4 FS $2 FS $1 FS $3 FS $5; print p}}"
+        main_awk = "{if ($3 == " + only_event_type + " && $4 != $2) {($4 > $2) ? p = $2 FS $4 FS $1 FS $3 FS $5: p = $4 FS $2 FS $1 FS $3 FS $5; print p}}"
     else:
-        main_awk = "{($4 > $2) ? p = $2 FS $4 FS $1 FS $3 FS $5: p = $4 FS $2 FS $1 FS $3 FS $5; print p}"
+        main_awk = "{if ($4 != $2) {($4 > $2) ? p = $2 FS $4 FS $1 FS $3 FS $5: p = $4 FS $2 FS $1 FS $3 FS $5; print p}}"
     cmd_list = ["awk", "'", main_awk, "'" ] + logs_path + [">", tmp_file]
     print(' '.join(cmd_list))
     p1 = subprocess.Popen(' '.join(cmd_list), shell=True)
     p1.wait()
 
-    main_awk = "{if ($1 != $2) print}"
-    cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", add_tmp_file, "&& mv", add_tmp_file, tmp_file]
-    p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
-    p2.wait()
+    #main_awk = "{if ($1 != $2) print}"
+    #cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", add_tmp_file, "&& mv", add_tmp_file, tmp_file]
+    #p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
+    #p2.wait()
 
 def awk_node_call_lengths(tmp_file, output_path, type_i=3, clr_i=2, cle_i=4, cl_len=5):
     """
