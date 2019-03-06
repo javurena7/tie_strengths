@@ -158,7 +158,7 @@ def awk_ext_node_out_calls(nodes_path, extended_logs_path, output_path):
     """
     Create a file with all the out calls of each node based on an existing list of nodes. Used to compute daily patterns of a list of people with full logs.
     """
-    main_awk = "FNR==NR{a[$1] = 1; next}{if (($3 == 2) && (a[$2])) {if (b[$2]) b[$2] = $1; else b[$2] = b[$2] FS $1;}} END {for (i in b) print i FS b[i];}" 
+    main_awk = "FNR==NR{a[$1] = 1; next}{if (($3 == 2) && (a[$2])) {if (b[$2]) b[$2] = b[$2] FS $1; else b[$2] = $1;}} END {for (i in b) print i FS b[i];}"
     cmd_list = ["awk", "'", main_awk, "'", nodes_path] + extended_logs_path + [">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
