@@ -112,7 +112,8 @@ class TieStrengths(object):
                 awk_ext_node_out_calls(self.paths['simple_degrees'], self.paths['extended_logs'], self.paths['node_out_calls'])
 
             if not os.path.isfile(self.paths['extended_full_times_dict']):
-                awk_tmp_times(self.paths['extended_logs'], tmp_file, run_path)
+                awk_tmp_times(self.paths['extended_logs'], tmp_file, run_path, "5")
+                # Last command is only_event_type, if 5, it returns calls, if 2, only sms, None returns both
                 awk_call_times(tmp_file, self.paths['extended_full_times_dict'])
                 remove_tmp(tmp_file)
 

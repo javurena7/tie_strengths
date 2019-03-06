@@ -82,12 +82,14 @@ def total_time(logs_path=logs_path, id_cols=(1,3), id_len=4):
             row = r.readline()
     return net
 
-def awk_tmp_times(logs_path, tmp_file, run_path):
+def awk_tmp_times(logs_path, tmp_file, run_path, only_event_type=None):
     """
     NOTE: logs_path must be a list of log_paths
     Use awk to obtain a file with call timestamps in the format:
         id_1 id_2 ts_1 ts_2 ... ts_n
     where id_1 is the min id of the edge, and id_2 is the max id of the edge, and ts_i is the timestamp for the i-th call between id_1 and id_2
+
+    only_event_type: returns only calls (for value 5), only SMs (for value 2) or both (None)
     """
 
     add_tmp_file = os.path.join(run_path, "add_tmp_times_file.txt")
@@ -99,6 +101,8 @@ def awk_tmp_times(logs_path, tmp_file, run_path):
     p1.wait()
 
     main_awk = "{if ($1 != $2) print}"
+    if only_event_type is not None:
+        main_awk = "{if ($1 != $2 && $4 == " + only_event_type +")}"
     cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", add_tmp_file, "&& mv", add_tmp_file, tmp_file]
     p2 = subprocess.Popen(' '.join(cmd_list), shell=True)
     p2.wait()
