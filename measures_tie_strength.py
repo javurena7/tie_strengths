@@ -221,7 +221,7 @@ class TieStrengths(object):
                 e1_div = utils.jsd(e1_distr, distr)
 
                 line = [out_call_div, e0_div, e1_div]
-                w.write(' '.join([e0, e1] + [str(round(l, 4)) for l in line]) + '\n')
+                w.write(' '.join([str(e0), str(e1)] + [str(round(l, 4)) for l in line]) + '\n')
                 row = r.readline()
         w.close()
 
