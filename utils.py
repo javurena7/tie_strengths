@@ -167,6 +167,20 @@ def parse_time_line_for_node(x):
         times = []
     return n, times
 
+def read_neighbors_dict(path):
+    """
+    Read the file with neighbors and return as dict with a set
+    """
+    d = {}
+    with open(path, 'r') as r:
+        row = r.readline()
+        while row:
+            x = row.split(' ')
+            d[int(x[0])] = set([int(t) for t in x[1:]])
+            row = r.readline()
+    return d
+
+
 
 def txt_to_dict(txt):
     """

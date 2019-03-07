@@ -168,6 +168,16 @@ def awk_ext_node_out_calls(nodes_path, extended_logs_path, output_path):
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
 
+def awk_node_neighbors(nodes_path, extended_net_path, output_path):
+    """
+    Create a file for the nodes only in the simplified net, but containing the neighbors of the extended net
+    """
+    main_awk = "FNR==NR{a[$1] = 1; next}{if (a[$1]) {if (b[$1]) b[$1] = b[$1] FS $2; else b[$1] = $2;} if (a[$2]) {if (b[$2]) b[$2] = b[$2] FS $1; else b[$2] = $1}} END {for (i in b) print i FS b[i];}"
+    cmd_list = ["awk", "'", main_awk, "'", nodes_path, extended_net_path, ">", output_path]
+    p = subprocess.Popen(' '.join(cmd_list), shell=True)
+    p.wait()
+
+
 def remove_tmp(tmp_file):
     cmd_list = ['rm', tmp_file]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
