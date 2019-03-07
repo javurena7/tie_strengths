@@ -193,7 +193,7 @@ def txt_to_dict(txt):
         row = r.readline()
         while row:
             x = row.split(' ')
-            d[x[0]] = [int(t) for t in x[1:]]
+            d[int(x[0])] = [int(t) for t in x[1:]]
             row = r.readline()
     return d
 
