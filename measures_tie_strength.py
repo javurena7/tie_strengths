@@ -177,8 +177,8 @@ class TieStrengths(object):
     def get_daily_cycles_for_nodes(self):
         self.paths['node_daily_distribution'] = os.path.join(self.run_path, 'node_daily_distribution.txt')
         w = open(self.paths['node_daily_distribution'], 'wb')
-        names = ['node'] + [str(i) for i in range(24)]
-        w.write(' '.join(names) + '\n')
+        #names = ['node'] + [str(i) for i in range(24)]
+        #w.write(' '.join(names) + '\n')
         with open(self.paths['node_out_calls'], 'r') as r:
             row = r.readline()
             while row:
