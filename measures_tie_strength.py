@@ -345,8 +345,12 @@ class TieStrengths(object):
         while nr:
             rs = nr.split(' ')
             a, b = int(rs[0]), int(rs[1])
-            a_neighs = set(net[a])
-            b_neighs = set(net[b])
+            try:
+                 a_neighs = set(net[a])
+                 b_neighs = set(net[b])
+            except:
+                 a_neighs = set([])
+                 b_neighs = set([])
 
             c_neighs = a_neighs.intersection(b_neighs)
             a_neighs.difference_update({b}.union(c_neighs))
