@@ -308,7 +308,7 @@ class TieStrengths(object):
         Creates a file where each node has a list of neighbors
         """
         self.paths['simple_net_neighbors'] = os.path.join(self.run_path, 'simple_net_neighbors.txt')
-        awk_node_neighbors(self.paths['degrees'], self.paths['extended_net'], self.paths['simple_net_neighbors'])
+        awk_node_neighbors(self.paths['simple_degrees'], self.paths['extended_net'], self.paths['simple_net_neighbors'])
 
 
     def temporal_overlap(self):
@@ -324,7 +324,7 @@ class TieStrengths(object):
         """
         delta_week = 60*60*24*7
         if 'extended_net' in self.paths:
-            net = read_neighbors_dict(self.paths['simple_net_neighbors'])
+            net = utils.read_neighbors_dict(self.paths['simple_net_neighbors'])
         else:
             net = read_edgelist(self.paths['net'])
 
