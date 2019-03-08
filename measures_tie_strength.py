@@ -323,14 +323,16 @@ class TieStrengths(object):
         The notice that the first columns (obtained by overlap_delta, and within delta_week of each other) are biased bc of new years (hypothesis), and should be deleted
         """
         delta_week = 60*60*24*7
+        write_logs('Temporal Overlap Starting... \n', self.paths['status'])
         if 'extended_net' in self.paths:
             net = utils.read_neighbors_dict(self.paths['simple_net_neighbors'])
         else:
             net = read_edgelist(self.paths['net'])
-
+        write_logs('Neighbors read\n', self.paths['status'])
         # TODO: add thing to check if this has run
         #_get_active_times()
         r = read_timesdic(self.paths['active_times'])
+        write_logs('Active Tiems read\n', self.paths['status'])
         start = self.first_date
 
         self.paths['temporal_overlap'] = os.path.join(self.run_path, 'temporal_overlap_' + str(self.overlap_delta) + '.txt')
@@ -410,6 +412,7 @@ class TieStrengths(object):
             nr = net_iter.readline()
         w.close()
         net_iter.close()
+        write_logs('Temporal Overlap done.\n', self.paths['status'])
 
 
     def get_stats(self, mode='call'):
