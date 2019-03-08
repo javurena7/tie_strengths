@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+from array import array
 from netpython import *
 import datetime as dt
 import subprocess
@@ -621,7 +622,8 @@ def read_timesdic(path, extra=False):
                 extr[(n1, n2)] = b
             else:
                 n1, n2, a = utils.parse_time_line(row, False)
-                dic[(n1, n2)] = a
+                # NOTE: if causes problems remove array.array
+                dic[(n1, n2)] = array('i', a)
             row = r.readline()
     if extra:
         return dic, extr
