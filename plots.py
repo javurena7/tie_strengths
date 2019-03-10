@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
+import seaborn as sb
 import numpy as np
 import pandas as pd
 from verkko.binner import bins as binner
 from scipy.stats import binned_statistic, binned_statistic_2d, rankdata
 from scipy.optimize import leastsq
+from scipy.ndimage import convolve
 
 def plot_powerlaw(values, main='', xlabel='', ylabel='', fig=None, ax=None, label=''):
     """
@@ -176,6 +178,7 @@ def loglogheatmap(x, y, z, factor_x=1.5, factor_y=1.45, stat='mean', xlabel=r'$w
 
     return fig, ax
 
+
 def loglinheatmap(x, y, z, factor_x=1.5, n_bins_y=20, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$B$', title='Overlap as a function of Number of Calls and Burstiness\n' + r'$\langle O | w, B \rangle$', exp_f=1):
     """
     exp_f contains an "expansion factor". The linear part is ploted [0-1], but we use this expansion factor to depict different things (for instance, =25 for 24 hours)
@@ -205,6 +208,73 @@ def loglinheatmap(x, y, z, factor_x=1.5, n_bins_y=20, stat='mean', xlabel=r'$w$ 
 
     return fig, ax
 
+
+def loglinsbmap(x, y, z, x_factor=1.2, y_bins=40, stat='mean'):
+    """
+    Heatmap using seaborn
+
+    """
+    bins_x = binner.Bins(float, min(x), max(x), 'log', x_factor)
+    bins_y = binner.Bins(float, min(y), max(y), 'lin', y_bins)
+    bin_means, x_edge, y_edge, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
+    bin_means = np.nan_to_num(bin_means.T)
+    ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
+    bin_means = convolve(bin_means, ker) #Add weights
+    bin_means = np.flip(bin_means, 0)
+    fig, ax = plt.subplots(1)
+    y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
+    x_ticks = np.array([str(int(a)) for a in x_edge])
+    y_ticks[1:y_bins:2] = ''
+    x_ticks[1:len(x_edge):2] = ''
+    sb.heatmap(bin_means, ax=ax, xticklabels=x_ticks, yticklabels=y_ticks, robust=True)
+
+    return fig, ax
+
+
+def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean'):
+    """
+    Heatmap using seaborn
+    """
+
+    bins_x = binner.Bins(float, min(x), max(x), 'lin', x_bins)
+    bins_y = binner.Bins(float, min(y), max(y), 'lin', y_bins)
+    bin_means, x_edge, y_edge, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
+    bin_means = np.nan_to_num(bin_means.T)
+    ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
+    bin_means = convolve(bin_means, ker) #Add weights
+    bin_means = np.flip(bin_means, 0)
+    fig, ax = plt.subplots(1)
+    y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
+    x_ticks = np.array([str(round(a, 2)) for a in x_edge])
+    x_ticks[1:x_bins:2] = ''
+    y_ticks[1:y_bins:2] = ''
+    sb.heatmap(bin_means, ax=ax, xticklabels=x_ticks, yticklabels=y_ticks, robust=True)
+
+    return fig, ax
+
+
+def loglogsbmap(x, y, z, x_factor=1.2, y_factor=1.2, stat='mean'):
+    """
+    Heatmap using seaborn
+    """
+
+    bins_x = binner.Bins(float, min(x), max(x), 'log', x_factor)
+    bins_y = binner.Bins(float, min(y), max(y), 'log', y_factor)
+    bin_means, x_edge, y_edge, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
+    bin_means = np.nan_to_num(bin_means.T)
+    ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
+    bin_means = convolve(bin_means, ker) #Add weights
+    bin_means = np.flip(bin_means, 0)
+    fig, ax = plt.subplots(1)
+    y_ticks = np.flip([str(int(a)) for a in y_edge], 0)
+    x_ticks = np.array([str(int(a)) for a in x_edge])
+    x_ticks[1:len(x_edge):2] = ''
+    y_ticks[1:len(y_edge):3] = ''
+    y_ticks[2:len(y_edge):3] = ''
+    sb.heatmap(bin_means, ax=ax, xticklabels=x_ticks, yticklabels=y_ticks, robust=True)
+
+    return fig, ax
+
 def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (calls)', ylabel=r'$B$', title='Overlap as a function of Number of Calls and Burstiness\n' + r'$\langle O | w, B \rangle$', exp_f=1):
     """
     exp_f contains an "expansion factor". The linear part is ploted [0-1], but we use this expansion factor to depict different things (for instance, =25 for 24 hours)
@@ -212,7 +282,7 @@ def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (
 
     bins_x = binner.Bins(float, min(x), max(x), 'lin', n_bins_x)
     bins_y = binner.Bins(float, min(y), max(y), 'lin', n_bins_y)
-    bin_means, _, _, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
+    bin_means, _, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
     bin_means = np.nan_to_num(bin_means.T)
     extent = [bins_x.bin_limits[0], bins_x.bin_limits[-1], bins_y.bin_limits[0], bins_y.bin_limits[-1]]
     fig, ax = plt.subplots(1)
