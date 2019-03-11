@@ -169,8 +169,10 @@ class TieStrengths(object):
             row = r.readline()
             while row:
                 e0, e1, times, lengths = utils.parse_time_line(row, True)
-                t_vec = [str(t) for t in t_vec]
-                w.write(' '.join(l + t_vec) + '\n')
+                l = [e0, e1]
+                t_vec = hour_weekly_call_distribution(times, lengths)
+                t_vec = [str(t) for t in l + t_vec]
+                w.write(' '.join(t_vec) + '\n')
                 row = r.readline()
         w.close()
 
