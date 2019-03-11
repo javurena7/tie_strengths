@@ -128,6 +128,8 @@ def lin_bin_plot(x, y, x_bins=20, xlabel=r'$B$', ylabel=r'$\langle O | B \rangle
     """
     bins = binner.Bins(float, int(np.floor(min(x))), max(x), 'lin', x_bins)
     bin_means, _, _ = binned_statistic(x, y, bins=bins.bin_limits)
+    bin_cts, _, _ = binned_statistic(x, y, bins=bins.bin_limits, statistic='count')
+    bin_means[bin_cts < 5] = np.nan
     if not fig:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -209,7 +211,7 @@ def loglinheatmap(x, y, z, factor_x=1.5, n_bins_y=20, stat='mean', xlabel=r'$w$ 
     return fig, ax
 
 
-def loglinsbmap(x, y, z, x_factor=1.2, y_bins=40, stat='mean'):
+def loglinsbmap(x, y, z, x_factor=1.2, y_bins=40, stat='mean', fig=None, ax=None):
     """
     Heatmap using seaborn
 
@@ -221,7 +223,8 @@ def loglinsbmap(x, y, z, x_factor=1.2, y_bins=40, stat='mean'):
     ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
     bin_means = convolve(bin_means, ker) #Add weights
     bin_means = np.flip(bin_means, 0)
-    fig, ax = plt.subplots(1)
+    if fig is not None:
+        fig, ax = plt.subplots(1)
     y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
     x_ticks = np.array([str(int(a)) for a in x_edge])
     y_ticks[1:y_bins:2] = ''
@@ -231,7 +234,7 @@ def loglinsbmap(x, y, z, x_factor=1.2, y_bins=40, stat='mean'):
     return fig, ax
 
 
-def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean'):
+def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean', fig=None, ax=None):
     """
     Heatmap using seaborn
     """
@@ -243,7 +246,8 @@ def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean'):
     ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
     bin_means = convolve(bin_means, ker) #Add weights
     bin_means = np.flip(bin_means, 0)
-    fig, ax = plt.subplots(1)
+    if fig is not None:
+        fig, ax = plt.subplots(1)
     y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
     x_ticks = np.array([str(round(a, 2)) for a in x_edge])
     x_ticks[1:x_bins:2] = ''
@@ -253,7 +257,7 @@ def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean'):
     return fig, ax
 
 
-def loglogsbmap(x, y, z, x_factor=1.2, y_factor=1.2, stat='mean'):
+def loglogsbmap(x, y, z, x_factor=1.2, y_factor=1.2, stat='mean', fig=None, ax=None):
     """
     Heatmap using seaborn
     """
@@ -265,7 +269,8 @@ def loglogsbmap(x, y, z, x_factor=1.2, y_factor=1.2, stat='mean'):
     ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
     bin_means = convolve(bin_means, ker) #Add weights
     bin_means = np.flip(bin_means, 0)
-    fig, ax = plt.subplots(1)
+    if fig is not None:
+        fig, ax = plt.subplots(1)
     y_ticks = np.flip([str(int(a)) for a in y_edge], 0)
     x_ticks = np.array([str(int(a)) for a in x_edge])
     x_ticks[1:len(x_edge):2] = ''
@@ -300,6 +305,23 @@ def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (
     ax.set_title(title)
     fig.colorbar(cax)
     return fig, ax
+
+
+def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(3, 5000), ylim=(0, .3), gridsize=(30, 55), xlabel=r'$w_{ij}$', ylabel=r'$O_{ij}$'):
+    log_bins = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), bins + 1)
+    lin_bins = np.linspace(ylim[0], ylim[1], bins + 1)
+    g = sb.jointplot(x, y, kind=kind, xscale='log', marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize)
+
+    counts_x = g.ax_marg_x.hist(x, bins=log_bins)
+    g.ax_marg_x.set(ylim=(0, max(counts_x[0])))
+
+    counts_y = g.ax_marg_y.hist(y, bins=lin_bins, orientation='horizontal')
+    g.ax_marg_y.set(xlim=(0, max(counts_y[0])))
+    bin_means, _, _ = binned_statistic(x, y, bins=log_bins)
+    log_bins = np.logspace(np.log10(min(x)), np.log10(max(x)), bins)
+    g.ax_joint.plot(log_bins, bin_means, 'gray')
+    g.ax_joint.set(xlabel=xlabel, ylabel=ylabel)
+    return g
 
 
 def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel='', ylabel='', title='', arg='.'):

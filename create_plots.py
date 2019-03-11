@@ -133,17 +133,22 @@ def plot_iet_mean_cumulative(df):
 
 
 
+def plot_iet_bur(b, w, ovrl, bins=30):
+    idxb = (b.notnull()) & (w > 1)
+    b, w, ovrl = b[idxb], w[idxb], ovrl[idxb]
 
-
-def plot_iet_bur(df, factor=50):
-    idx = df.c_iet_bur_na.notnull()
-    fig, ax = plots.lin_bin_plot(df.c_iet_bur_na[idx], df.ovrl[idx], factor, label='Naive')
-    idx = df.c_iet_bur_km.notnull()
-    fig, ax = plots.lin_bin_plot(df.c_iet_bur_km[idx], df.ovrl[idx], factor, label='KM', fig=fig, ax=ax)
-    idx = df.c_iet_bur_c_na.notnull()
-    fig, ax = plots.lin_bin_plot(df.c_iet_bur_c_na[idx], df.ovrl[idx], factor, label='C-Naive', fig=fig, ax=ax)
-    idx = df.c_iet_bur_c_km.notnull()
-    fig, ax = plots.lin_bin_plot(df.c_iet_bur_c_km[idx], df.ovrl[idx], factor, label='C-KM', fig=fig, ax=ax)
+    b_len = b.shape[0]
+    b = rankdata(b)/float(b_len)
+    idx = (w > 2) & (w < 11)
+    #import pdb; pdb.set_trace()
+    fig, ax = plots.lin_bin_plot(b[idx], ovrl[idx], bins, label=r'$2 < w < 11$')
+    idx = (w > 9) & (w < 20)
+    fig, ax = plots.lin_bin_plot(b[idx], ovrl[idx], bins, label=r'$10 \leq w < 20$', fig=fig, ax=ax)
+    idx = (w > 19) & (w < 50)
+    fig, ax = plots.lin_bin_plot(b[idx], ovrl[idx], bins, label=r'$20 \leq w < 50$', fig=fig, ax=ax)
+    idx = w > 49
+    fig, ax = plots.lin_bin_plot(b[idx], ovrl[idx], bins, label=r'$50 \leq w$', fig=fig, ax=ax)
+    fig, ax = plots.lin_bin_plot(b, ovrl, bins, label='all', fig=fig, ax=ax)
     ax.legend()
     ax.set_xlabel(r'Burstiness, $B$')
     ax.set_ylabel(r'$\langle O | B \rangle$')
@@ -167,9 +172,6 @@ def plot_iet_bur_cumulative(df, size=20, arg='-'):
     ax.set_title('Overlap as a function of cumulative burstiness')
     fig.savefig(run_path + 'bur_iet_cumulative.png')
     return fig, ax
-
-
-
 
 
 def plot_mu_sig_bur_na(df):
