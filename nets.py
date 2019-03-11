@@ -523,28 +523,28 @@ def get_neighbors(ov_path, deg_path, output_path):
     df.to_csv(output_path, sep=' ', index=False)
 
 
-def reciprocity(logs_path=logs_path, output_path_1=None, output_path_2=None, id_cols=(1, 3)):
+def reciprocity(logs_path, output_path=None, id_cols=(1, 3)):
     """
     Reciprocity: ratio of how it is for one node to call the other (0 implies equal number of calls, 1 implies all calls are placed by one node)
     """
     dic = {}
-    with open(logs_path, 'r') as r:
-        row = r.readline()
-        while row:
-            rs = row.split(' ')
-            v0, v1 = int(rs[id_cols[0]]), int(rs[id_cols[1]])
-            key = (min(v0, v1), max(v0, v1))
-            try:
-                dic[key] = _recip(key, v0, dic[key])
-            except:
-                dic[key] = _recip(key, v0, [0, 0])
+    for log in logs_path:
+        with open(log, 'r') as r:
             row = r.readline()
+            while row:
+                rs = row.split(' ')
+                v0, v1 = int(rs[id_cols[0]]), int(rs[id_cols[1]])
+                key = (min(v0, v1), max(v0, v1))
+                try:
+                    dic[key] = _recip(key, v0, dic[key])
+                except:
+                    dic[key] = _recip(key, v0, [0, 0])
+                row = r.readline()
 
-    dic_2 = {key: max(val)/float(sum(val)) for key, val in dic.iteritems()}
-    dic = {key: np.sqrt((val[0]*val[1])/float(sum(val)**2)) for key, val in dic.iteritems()}
-    if output_path_1:
-        utils.write_dic(dic, output_path_1)
-        utils.write_dic(dic_2, output_path_2)
+    dic = {key: np.abs(max(val)/float(sum(val)) - .5) for key, val in dic.iteritems()}
+    #dic = {key: np.sqrt((val[0]*val[1])/float(sum(val)**2)) for key, val in dic.iteritems()}
+    if output_path:
+        utils.write_dic(dic, output_path)
     else:
         return dic
 

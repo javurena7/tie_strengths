@@ -177,6 +177,25 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
+    def get_reciprocity(self):
+        self.paths['reciprocity'] = os.path.join(self.run_path, 'reciprocity.txt')
+        rep_dic = reciprocity(self.paths['logs'])
+        w = open(self.paths['reciprocity'], 'wb')
+        with open(self.paths['net'], 'r') as r:
+            row = r.readline()
+            while row:
+                e0, e1, _ = utils.parse_time_line(row)
+                try:
+                    rep = round(rep_dic[(e0, e1)], 4)
+                except KeyError:
+                    rep = np.nan
+                t = [str(i) for i in [e0, e1, rep]]
+                w.write(' '.join(t) + '\n')
+                row = r.readline()
+        w.close()
+
+
+
     def get_daily_cycles_for_nodes(self):
         self.paths['node_daily_distribution'] = os.path.join(self.run_path, 'node_daily_distribution.txt')
         w = open(self.paths['node_daily_distribution'], 'wb')
@@ -787,11 +806,7 @@ class TieStrengths(object):
             return c
 
 
-    def _reciprocity(self):
-        self.paths['reciprocity_1'] = os.path.join(self.run_path, 'reciprocity.edg')
-        self.paths['reciprocity_2'] = os.path.join(self.run_path, 'reciprocity_2.edg')
-        if not os.path.isfile(self.paths['reciprocity_1']):
-            reciprocity(self.paths['logs'], self.paths['reciprocity_1'], self.paths['reciprocity_2'])
+
 
     def all_stats(self):
 
