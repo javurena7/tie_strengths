@@ -165,12 +165,13 @@ class TieStrengths(object):
         w = open(self.paths['week_vec_' + mode], 'wb')
         names = [str(i) + '_' + str(j) for i, j in product(range(7), range(24))]
         w.write(' '.join(['0', '1'] + names) + '\n')
-        with open(self.paths[mode + '_times'], 'r') as r:
+        with open(self.paths['full_times_dict'], 'r') as r:
             row = r.readline()
             while row:
-                e0, e1, times, lengths = utils.parse_time_line(row, True)
+                e0, e1, times = utils.parse_time_line(row)
+# NOTE: if including call lengths (all call_times.txt does, use parse_time_line(row, True))
                 l = [e0, e1]
-                t_vec = hour_weekly_call_distribution(times, lengths)
+                t_vec = hour_weekly_call_distribution(times)
                 t_vec = [str(t) for t in l + t_vec]
                 w.write(' '.join(t_vec) + '\n')
                 row = r.readline()
