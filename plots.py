@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sb
 import numpy as np
@@ -307,10 +308,10 @@ def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (
     return fig, ax
 
 
-def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(3, 5000), ylim=(0, .3), gridsize=(30, 55), xlabel=r'$w_{ij}$', ylabel=r'$O_{ij}$'):
+def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(3, 5000), ylim=(0, .3), gridsize=(30, 55), xlabel=r'$w_{ij}$', ylabel=r'$O_{ij}$', height=5):
     log_bins = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), bins + 1)
     lin_bins = np.linspace(ylim[0], ylim[1], bins + 1)
-    g = sb.jointplot(x, y, kind=kind, xscale='log', marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize)
+    g = sb.jointplot(x, y, kind=kind, xscale='log', marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize, height=height)
 
     counts_x = g.ax_marg_x.hist(x, bins=log_bins)
     g.ax_marg_x.set(ylim=(0, max(counts_x[0])))
@@ -318,8 +319,25 @@ def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(3, 5000), ylim=(0, .3), gr
     counts_y = g.ax_marg_y.hist(y, bins=lin_bins, orientation='horizontal')
     g.ax_marg_y.set(xlim=(0, max(counts_y[0])))
     bin_means, _, _ = binned_statistic(x, y, bins=log_bins)
-    log_bins = np.logspace(np.log10(min(x)), np.log10(max(x)), bins)
+    log_bins = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), bins)
     g.ax_joint.plot(log_bins, bin_means, 'gray')
+    g.ax_joint.set(xlabel=xlabel, ylabel=ylabel)
+    return g
+
+
+def linlinjointdistr(x, y, bins=25, kind='hex', xlim=(-1, 1), ylim=(0, .3), gridsize=(30, 55), xlabel=None, ylabel=r'O_{ij}$', height=5):
+    lin_bins_x = np.linspace(xlim[0], xlim[1], bins + 1)
+    lin_bins = np.linspace(ylim[0], ylim[1], bins + 1)
+    g = sb.jointplot(x, y, kind=kind, marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize, height=height)
+
+    counts_x = g.ax_marg_x.hist(x, bins=lin_bins_x)
+    g.ax_marg_x.set(ylim=(0, max(counts_x[0])))
+
+    counts_y = g.ax_marg_y.hist(y, bins=lin_bins, orientation='horizontal')
+    g.ax_marg_y.set(xlim=(0, max(counts_y[0])))
+    bin_means, _, _ = binned_statistic(x, y, bins=lin_bins_x)
+    lin_bins_x = np.linspace(xlim[0], xlim[1], bins)
+    g.ax_joint.plot(lin_bins_x, bin_means, 'gray')
     g.ax_joint.set(xlabel=xlabel, ylabel=ylabel)
     return g
 
@@ -340,3 +358,69 @@ def cumulative_distribution(x, y, label='', size=100, fig=None, ax=None, xlabel=
         y_mean.append(np.mean(y_h))
     ax.plot(p_cum, y_mean, arg, label=label)
     return fig, ax
+
+def latexify(fig_width=None, fig_height=None, columns=1):
+    """Set up matplotlib's RC params for LaTeX plotting.
+    Call this before plotting a figure.
+
+    Parameters
+    ----------
+    fig_width : float, optional, inches
+    fig_height : float,  optional, inches
+    columns : {1, 2}
+    """
+
+    # code adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
+
+    # Width and max height in inches for IEEE journals taken from
+    # computer.org/cms/Computer.org/Journal%20templates/transactions_art_guide.pdf
+
+    assert(columns in [1,2])
+
+    if fig_width is None:
+        fig_width = 3.39 if columns==1 else 6.9 # width in inches
+
+    if fig_height is None:
+        golden_mean = (np.sqrt(5)-1.0)/2.0    # Aesthetic ratio
+        fig_height = fig_width*golden_mean # height in inches
+
+    MAX_HEIGHT_INCHES = 8.0
+    if fig_height > MAX_HEIGHT_INCHES:
+        print("WARNING: fig_height too large:" + fig_height +
+              "so will reduce to" + MAX_HEIGHT_INCHES + "inches.")
+        fig_height = MAX_HEIGHT_INCHES
+
+    params = {'backend': 'ps',
+              'text.latex.preamble': ['\usepackage{gensymb}'],
+              'axes.labelsize': 12, # fontsize for x and y labels (was 10)
+              'axes.titlesize': 11,
+              'text.fontsize': 11, # was 10
+              'legend.fontsize': 11, # was 10
+              'xtick.labelsize': 11,
+              'ytick.labelsize': 11,
+              'text.usetex': True,
+              'figure.figsize': [fig_width,fig_height],
+              'font.family': 'serif'
+    }
+
+    matplotlib.rcParams.update(params)
+
+
+def format_axes(ax):
+
+    for spine in ['top', 'right']:
+        ax.spines[spine].set_visible(False)
+
+    for spine in ['left', 'bottom']:
+        ax.spines[spine].set_color(SPINE_COLOR)
+        ax.spines[spine].set_linewidth(0.5)
+
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+
+    for axis in [ax.xaxis, ax.yaxis]:
+        axis.set_tick_params(direction='out', color=SPINE_COLOR)
+
+    return ax
+
+
