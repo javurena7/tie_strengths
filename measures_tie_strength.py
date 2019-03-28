@@ -379,6 +379,7 @@ class TieStrengths(object):
             c_neighs = a_neighs.intersection(b_neighs)
             a_neighs.difference_update({b}.union(c_neighs))
             b_neighs.difference_update({a}.union(c_neighs))
+
             neighs_t = []
             common_neighs_t = []
             all_time_common = 0.
@@ -386,6 +387,12 @@ class TieStrengths(object):
             no_time_common = 0.
 
             if len(c_neighs) > 0:
+                edge = (min([a, b]), max([a, b]))
+                lims = list(r.get(edge, []))
+                edge_acive = utils.active_limits(lims, self.last_date, ts)
+
+
+
                 for n in a_neighs:
                     edge = (min([a, n]), max([a, n]))
                     lims = list(r.get(edge, []))
@@ -435,6 +442,21 @@ class TieStrengths(object):
         w.close()
         net_iter.close()
         write_logs('Temporal Overlap done.\n', self.paths['status'])
+
+
+    def analyze_temporal_overlap(self):
+
+        r = read_timesdic(self.paths['active_times'])
+        write_logs('Active Times read\n', self.paths['status'])
+        to = open(self.paths['temporal_overlap'], 'r')
+
+        row = to.readline()
+        while row:
+            rs = row.split(' ')
+            a, b = int(rs[0]), int(rs[1])
+
+            row = to.readline()
+        pass
 
 
     def get_stats(self, mode='call'):

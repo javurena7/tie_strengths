@@ -235,7 +235,70 @@ def loglinsbmap(x, y, z, x_factor=1.2, y_bins=40, stat='mean', fig=None, ax=None
     return fig, ax
 
 
-def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean', fig=None, ax=None):
+def paper_heatmaps(x1, x2, x3, y, z, x1_bins=40, x2_bins=30, x3_bins=30, y_bins=40, stat='mean', cbar_kws={}):
+    fig, axn = plt.subplots(1, 3, sharey=True)
+    cbar_ax = fig.add_axes([.9, .2, .015, .7])
+
+    bins_x1 = binner.Bins(float, min(x1), max(x1), 'lin', x1_bins)
+    bins_x2 = binner.Bins(float, min(x2), max(x2), 'lin', x2_bins)
+    bins_x3 = binner.Bins(float, min(x3), max(x3), 'lin', x3_bins)
+    bins_y = binner.Bins(float, min(y), max(y), 'lin', y_bins)
+
+    bin_means, x_edge, y_edge, _ = binned_statistic_2d(x1, y, z, statistic=stat, bins=[bins_x1.bin_limits, bins_y.bin_limits])
+    bin_means, x_edge, y_edge = remove_empty_bins(bin_means.T, x_edge, y_edge)
+    bin_means = np.nan_to_num(bin_means)
+    ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
+    bin_means = convolve(bin_means, ker) #Add weights
+    bin_means = np.flip(bin_means, 0)
+    y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
+    x_ticks_h = np.array([str(round(a, 1)) for a in x_edge])
+    xl = len(x_edge)
+    x_ticks = ['']*xl
+    x_ticks[1:xl:4] = x_ticks_h[1:xl:4]
+    y_ticks[1:y_bins:2] = ''
+    y_ticks[1:y_bins:3] = ''
+    g = sb.heatmap(bin_means, xticklabels=x_ticks, yticklabels=y_ticks, robust=True, square=True, ax=axn[0], cbar=False, vmin=0, vmax=.12)
+    g.set(xlabel='(a)    ' + r'$Rank(N^E_{ij})$', ylabel=r'$Rank(w_{ij})$')
+    #g.set_tickxlabels(rotation=40)
+
+    bin_means, x_edge, y_edge, _ = binned_statistic_2d(x2, y, z, statistic=stat, bins=[bins_x2.bin_limits, bins_y.bin_limits])
+    bin_means, x_edge, y_edge = remove_empty_bins(bin_means.T, x_edge, y_edge)
+    bin_means = np.nan_to_num(bin_means)
+    ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
+    bin_means = convolve(bin_means, ker) #Add weights
+    bin_means = np.flip(bin_means, 0)
+    y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
+    x_ticks_h = np.array([str(round(a, 1)) for a in x_edge])
+    xl = len(x_edge)
+    x_ticks = ['']*xl
+    x_ticks[1:xl:4] = x_ticks_h[1:xl:4]
+    y_ticks[1:y_bins:2] = ''
+    y_ticks[1:y_bins:3] = ''
+    g = sb.heatmap(bin_means, xticklabels=x_ticks, yticklabels=y_ticks, robust=True, square=True, ax=axn[1], cbar=False, vmin=0, vmax=.12)
+    g.set(xlabel='(b)    ' + r'$Rank(JSD_{ij})$')
+
+    bin_means, x_edge, y_edge, _ = binned_statistic_2d(x3, y, z, statistic=stat, bins=[bins_x3.bin_limits, bins_y.bin_limits])
+    bin_means, x_edge, y_edge = remove_empty_bins(bin_means.T, x_edge, y_edge)
+    bin_means = np.nan_to_num(bin_means)
+    ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
+    bin_means = convolve(bin_means, ker) #Add weights
+    bin_means = np.flip(bin_means, 0)
+    y_ticks_h = np.flip([str(round(a, 2)) for a in y_edge], 0)
+    x_ticks_h = np.array([str(round(a, 1)) for a in x_edge])
+    xl, yl = len(x_edge), len(y_edge)
+    x_ticks = ['']*xl
+    y_ticks = ['']*yl
+    x_ticks[1:xl:4] = x_ticks_h[1:xl:4]
+    y_ticks[1:yl:3] = y_ticks_h[1:yl:3]
+    g = sb.heatmap(bin_means, xticklabels=x_ticks, yticklabels=y_ticks, robust=True, square=True, ax=axn[2], cbar=True, vmin=0, vmax=.12, cbar_ax=cbar_ax, cbar_kws={'label': r'$O_{ij}$'})
+    g.set(xlabel='(c)    ' + r'$Rank(B_{ij})$')
+    fig.tight_layout(rect=[0, .03, .9, .98])
+    fig.savefig('full_run/figs/abstract1.pdf')
+
+    return g
+
+
+def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean', z_label=r'$O_{ij}$'):
     """
     Heatmap using seaborn
     """
@@ -243,19 +306,37 @@ def linlinsbmap(x, y, z, x_bins=40, y_bins=40, stat='mean', fig=None, ax=None):
     bins_x = binner.Bins(float, min(x), max(x), 'lin', x_bins)
     bins_y = binner.Bins(float, min(y), max(y), 'lin', y_bins)
     bin_means, x_edge, y_edge, _ = binned_statistic_2d(x, y, z, statistic=stat, bins=[bins_x.bin_limits, bins_y.bin_limits])
-    bin_means = np.nan_to_num(bin_means.T)
+
+    bin_means, x_edge, y_edge = remove_empty_bins(bin_means.T, x_edge, y_edge)
+
+    bin_means = np.nan_to_num(bin_means)
     ker = np.ones((5, 5)); ker[3, 3] = 10.; ker = ker/34.
     bin_means = convolve(bin_means, ker) #Add weights
     bin_means = np.flip(bin_means, 0)
-    if fig is not None:
-        fig, ax = plt.subplots(1)
+
     y_ticks = np.flip([str(round(a, 2)) for a in y_edge], 0)
     x_ticks = np.array([str(round(a, 2)) for a in x_edge])
     x_ticks[1:x_bins:2] = ''
     y_ticks[1:y_bins:2] = ''
-    sb.heatmap(bin_means, ax=ax, xticklabels=x_ticks, yticklabels=y_ticks, robust=True)
+    g = sb.heatmap(bin_means, xticklabels=x_ticks, yticklabels=y_ticks, robust=True, cbar_kws={'label': z_label}, square=True)
 
-    return fig, ax
+    return g
+
+
+def remove_empty_bins(bin_means, xe, ye):
+    xe_n = [xe[0]]
+    nan_cols = np.isnan(bin_means).all(0)
+    for t, x in zip(nan_cols, xe[1:]):
+        if ~t:
+            xe_n.append(x)
+    bin_means = bin_means[:, ~nan_cols]
+    ye_n = [ye[0]]
+    nan_rows = np.isnan(bin_means).all(1)
+    for t, y in zip(nan_rows, ye[1:]):
+        if ~t:
+            ye_n.append(y)
+    bin_means = bin_means[~nan_rows]
+    return bin_means, xe_n, ye_n
 
 
 def loglogsbmap(x, y, z, x_factor=1.2, y_factor=1.2, stat='mean', fig=None, ax=None):
@@ -325,7 +406,7 @@ def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(3, 5000), ylim=(0, .3), gr
     return g
 
 
-def linlinjointdistr(x, y, bins=25, kind='hex', xlim=(-1, 1), ylim=(0, .3), gridsize=(30, 55), xlabel=None, ylabel=r'O_{ij}$', height=5):
+def linlinjointdistr(x, y, bins=25, kind='hex', xlim=(-1, 1), ylim=(0, .3), gridsize=(30, 55), xlabel=None, ylabel=r'$O_{ij}$', height=5):
     lin_bins_x = np.linspace(xlim[0], xlim[1], bins + 1)
     lin_bins = np.linspace(ylim[0], ylim[1], bins + 1)
     g = sb.jointplot(x, y, kind=kind, marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize, height=height)
@@ -338,6 +419,23 @@ def linlinjointdistr(x, y, bins=25, kind='hex', xlim=(-1, 1), ylim=(0, .3), grid
     bin_means, _, _ = binned_statistic(x, y, bins=lin_bins_x)
     lin_bins_x = np.linspace(xlim[0], xlim[1], bins)
     g.ax_joint.plot(lin_bins_x, bin_means, 'gray')
+    g.ax_joint.set(xlabel=xlabel, ylabel=ylabel)
+    return g
+
+
+def loglogjointdistr(x, y, bins=25, kind='hex', xlim=(.01, 1), ylim=(.01, .1), gridsize=(55, 33), xlabel=None, ylabel=r'O_{ij}$', height=5):
+    log_bins_x = np.logspace(xlim[0], xlim[1], bins + 1)
+    log_bins = np.logspace(ylim[0], ylim[1], bins + 1)
+    g = sb.jointplot(x, y, kind=kind, xscale='log', yscale='log', marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize, height=height)
+
+    counts_x = g.ax_marg_x.hist(x, bins=log_bins_x)
+    g.ax_marg_x.set(ylim=(0, max(counts_x[0])))
+
+    counts_y = g.ax_marg_y.hist(y, bins=log_bins, orientation='horizontal')
+    g.ax_marg_y.set(xlim=(0, max(counts_y[0])))
+    bin_means, _, _ = binned_statistic(x, y, bins=log_bins_x)
+    log_bins_x = np.logspace(xlim[0], xlim[1], bins)
+    g.ax_joint.plot(log_bins_x, bin_means, 'gray')
     g.ax_joint.set(xlabel=xlabel, ylabel=ylabel)
     return g
 
@@ -392,12 +490,12 @@ def latexify(fig_width=None, fig_height=None, columns=1):
 
     params = {'backend': 'ps',
               'text.latex.preamble': ['\usepackage{gensymb}'],
-              'axes.labelsize': 12, # fontsize for x and y labels (was 10)
+              'axes.labelsize': 11, # fontsize for x and y labels (was 10)
               'axes.titlesize': 11,
-              'text.fontsize': 11, # was 10
-              'legend.fontsize': 11, # was 10
-              'xtick.labelsize': 11,
-              'ytick.labelsize': 11,
+              'text.fontsize': 10, # was 10
+              'legend.fontsize': 10, # was 10
+              'xtick.labelsize': 8,
+              'ytick.labelsize': 8,
               'text.usetex': True,
               'figure.figsize': [fig_width,fig_height],
               'font.family': 'serif'
@@ -407,7 +505,7 @@ def latexify(fig_width=None, fig_height=None, columns=1):
 
 
 def format_axes(ax):
-
+    SPINE_COLOR = 'gray'
     for spine in ['top', 'right']:
         ax.spines[spine].set_visible(False)
 
