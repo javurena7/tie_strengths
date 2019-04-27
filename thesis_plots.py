@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
 import seaborn as sb
+from scipy.stats import pearsonr, spearmanr
+
 
 def weight_vs_overlap(w, o, name='full_run/figs/weight_overlap.pdf'):
     g = plots.loglinjointdistr(w, o, height=5)
@@ -332,6 +334,81 @@ def jsd_diff_htmap(j1, j2, w, o, name='full_run/figs/jsd_diff_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
+def weekly_corrs(corrs, name='full_run/figs/weekly_correlations.pdf'):
+
+    plots.latexify(5.5, 5, 1)
+    g = sb.heatmap(corrs, xticklabels=8, yticklabels=8)
+    ticklabels = get_week_labels(8)
+    g.axes.set_xticklabels(ticklabels)
+    g.axes.set_yticklabels(ticklabels, rotation=0)
+    g.get_figure().savefig(name)
+
+def get_week_labels(step=8):
+    """
+    step: gap (in hours) between labels
+    """
+    from itertools import product
+    def ifelse(a, b, c):
+        if a:
+            return b
+        else:
+            return c
+    days = ['Mo.', 'Tu.', 'We.', 'Th.', 'Fr.', 'Sa.', 'Su.']
+    hours = [ifelse(np.mod(i, step)==0, str(i) + 'h', '') for i in range(24)]
+    ticklabels = [d + '  ' + h for d, h in product(days, hours) if len(h) > 0]
+    return ticklabels
+
+def hourly_correlation(df, y, name='full_run/figs/hourly_correlation.pdf'):
+    step = 8
+    ticklabels = get_week_labels(step)
+    av = [spearmanr(y, df.iloc[:, i])[0] for i in range(df.shape[1])]
+    plots.latexify(6, 2.2, 1)
+    fig, ax = plt.subplots(1)
+    ax.plot(av)
+    ax.set_xticks(range(0, df.shape[1], step))
+    ax.set_xticklabels(ticklabels, rotation=90)
+    ax.set_ylabel(r'$O_{ij}$')
+    fig.tight_layout()
+    fig.savefig(name)
+
+
+def hours_distributions(df, w, y, name='full_run/figs/hourly_distributions.pdf'):
+    plots.latexify(6, 6, 1)
+    fig, axn = plt.subplots(4, 1, sharex=True)
+
+    wns = [np.mean(w * df.iloc[:, i].values) for i in range(df.shape[1])]
+    axn[0].plot(wns)
+    axn[0].set_ylabel(r'$\langle w^h_{ij} \rangle$')
+    axn[0].grid()
+
+    corrs = [spearmanr(y, df.iloc[:, i])[0] for i in range(df.shape[1])]
+    axn[2].plot(corrs)
+
+
+    step = 8
+    ticklabels = get_week_labels(step)
+    axn[2].set_xticks(range(0, df.shape[1], step))
+    axn[2].set_ylabel(r'$Spearman(O_{ij}, \phi^h_{ij})$')
+    axn[2].grid()
+
+    y_avg = [np.average(y, weights=df.iloc[:, i].values) for i in range(df.shape[1])]
+    df = df.astype(bool)
+    n = float(df.shape[0])
+    pct_calls = [len(y[df.iloc[:, i].values])/n for i in range(df.shape[1])]
+    axn[3].plot(y_avg)
+    axn[3].set_ylabel(r'$\langle O_{ij}| \phi^h_{ij} \rangle$')
+    axn[3].grid()
+
+    axn[1].plot(pct_calls)
+    axn[1].set_ylabel(r'$\%$' + ' active' )
+    axn[1].grid()
+
+    axn[3].set_xticklabels(ticklabels, rotation=90)
+    axn[3].set_xlabel(r'$h$')
+
+    fig.tight_layout()
+    fig.savefig(name)
+
 
 if __name__=="__main__":
     plt.ion()
@@ -395,8 +472,5 @@ if __name__=="__main__":
         row = r.readline()
     w.close()
     r.close()
-
-
-
 
 
