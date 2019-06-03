@@ -14,15 +14,18 @@ plt.ion()
 df = pd.read_csv('full_run/week_vec_call_sample.txt', sep=' ')
 del df['1']
 del df['0']
-
-#corrs = df.corrs()
-#g = sns.heatmap(corrs, center=0)
+cols = df.columns
 
 w = pd.read_csv('full_run/net.edg', sep=' ')
 idx = w.w > 5
 y = w[idx]
 y = y.ovrl.iloc[:400000]
-#av = [np.average(y, weights=df.iloc[:, i], axis=0) for i in range(df.shape[1])]
+w = w[idx]
+w = w.w.iloc[:400000]
+
+ccorrs = pd.read_csv('full_run/weekly_pattern_corrs.txt', sep=' ')
+mat = ccorrs.values
+
 """
 
 def evaluate_clusters(w1, w2, o, idx):
@@ -196,7 +199,7 @@ def plot_pca_c(b, bi, name='full_run/figs/pca_comps.pdf'):
     fig.tight_layout()
     fig.savefig(name)
 
-"""
+    """
 def mca_clustering(mat, cutoff):
     import markov_clustering as mc
     mat = mat.copy()
@@ -213,11 +216,24 @@ def mca_clustering(mat, cutoff):
 
         dfc = df[clusters[i]].sum(1)
         idx = dfc > 0
-        corrs.append((len(dfc[idx])/n, spearmanr(dfc, y)[0], np.average(y, weights=dfc.values)))
+        corrs.append((len(dfc[idx])/n, spearmanr(dfc[idx], y.values[idx])[0], np.average(y, weights=dfc.values)))
     #corrs = [(i, spearmanr(df[clusters[i]].sum(1), y)[0]) for i in range(len(clusters))]
 
     return result, clusters, corrs
-"""
+    """
+
+
+def decouple_overlap(w, y):
+    """
+    Decouple w and y by rescaling y according to similar w values (for a binning of w, we obtain the average overlap of the bin; we rescale all overlap values according to this)
+    """
+    n_cuts = 11
+    w_c = pd.qcut(w, n_cuts, labels=False)
+    av_ovs = {k: np.mean(y[w_c == k]) for k in range(n_cuts)}
+    w_c = w_c.map(av_ovs)
+    y_r = y/w_c
+
+    return y_r
 
 def arrange_cluster_results(result, ccorrs):
     result[result > 0] = 1
@@ -240,7 +256,7 @@ def get_diff_clusts(mat, cutoffs):
         res = arrange_cluster_results(res, ccrs)
         results.append(res)
         c = [x[1] for x in ccrs]
-        cx = [x[0]*x[1] for x in ccrs]
+        cx = [np.abs(x[0]*x[1]) for x in ccrs]
         cm = [x[2] for x in ccrs]
         ccorrs.append((np.mean(c), np.percentile(c, 5), np.percentile(c, 95), np.max(cx), np.mean(cx), np.mean(cm), np.percentile(cm, 5), np.percentile(cm, 95), np.percentile(cx, 5), np.percentile(cx, 95)))
     return results, ccorrs
@@ -252,10 +268,8 @@ def plot_different_clusters(results, cutoffs, idx):
     vmax = max([np.nanmax(r) for r in results])
     vmin = min([vmin, -vmax])
     vmax = max([-vmin, vmax])
-    #norm = MidPointNorm(midpoint=0)
     for i, idx_n in enumerate(idx):
         im = axn[i].imshow(results[idx_n], origin='lower', cmap='coolwarm', vmin=vmin, vmax=vmax)
-        #im = axn[i].imshow(results[idx_n], origin='lower', cmap=cmap)
         axn[i].set_yticks([])
     axn[i].set_xticks(range(0, 168, 8))
     ticklabels = get_week_labels(8)
@@ -264,7 +278,7 @@ def plot_different_clusters(results, cutoffs, idx):
     fig.colorbar(im, ax=axn)
     return fig, axn
 
-def plot_cluster_overlap(cutoffs, ccorrs, name='full_run/figs/cluster_overlap.pdf'):
+def plot_cluster_overlap(cutoffs, ccorrs, name='full_run/figs_reclust/cluster_overlap.pdf'):
     fig, ax = plt.subplots()
     ax.plot(cutoffs, [x[5] for x in ccorrs], color='r')
     ax.plot(cutoffs, [x[6] for x in ccorrs], color='grey', alpha=.6)
@@ -276,13 +290,13 @@ def plot_cluster_overlap(cutoffs, ccorrs, name='full_run/figs/cluster_overlap.pd
     return fig, ax
 
 
-def plot_cluster_correlation_weights(cutoffs, ccorrs, name='full_run/figs/cluster_overlap_correlation.pdf'):
+def plot_cluster_correlation_weights(cutoffs, ccorrs, name='full_run/figs_reclust/cluster_overlap_correlation.pdf'):
     fig, ax = plt.subplots()
     ax.plot(cutoffs, [x[4] for x in ccorrs], color='r')
     ax.plot(cutoffs, [x[8] for x in ccorrs], color='grey', alpha=.6)
     ax.plot(cutoffs, [x[3] for x in ccorrs], '.',color='grey', alpha=.6)
     ax.plot(cutoffs, [x[9] for x in ccorrs], color='gray', alpha=.6)
-    ax.set_ylabel(r'$n(\phi^c_{ij}) * Spearman(O_{ij}, \phi^c_{ij})$')
+    ax.set_ylabel(r'$WS^c$')
     ax.set_xlabel(r'$\psi$')
     fig.tight_layout()
     fig.savefig(name)
@@ -290,6 +304,34 @@ def plot_cluster_correlation_weights(cutoffs, ccorrs, name='full_run/figs/cluste
 # use cmap='gnuplot2'
 
 
+def cluster_to_heatmap(clusters):
+    ht = np.zeros((7, 24))
+    for k, v in clusters.items():
+        for d in v:
+            dd = d.split('_')
+            ht[int(dd[0]), int(dd[1])] = int(k) + 1
+    return ht
+
+def plot_clusters(ht, name='full_run/figs_reclust/clusters.pdf', ncolors=12):
+    #plots.latexify(6, 3, 1)
+    y_ticks = ['Mo.', 'Tu.', 'We.', 'Th.', 'Fr.', 'Sa.', 'Su.']
+    x_ticks = [x for x in range(0, 24)]
+    g = sns.heatmap(ht, cmap=sns.color_palette('Paired', ncolors, desat=.5), annot=True, cbar=False)
+    g.axes.set_xticks(x_ticks)
+    g.axes.set_yticks(range(0, 7))
+    g.axes.set_yticklabels(y_ticks)
+    g.axes.set_xticklabels(x_ticks)
+    g.axes.set_xlabel('Hour')
+    g.axes.set_ylabel('Day')
+    g.get_figure().tight_layout()
+    g.get_figure().savefig(name)
+    return g
+
+def clusters_to_df(df, clusters):
+    df_new = pd.DataFrame()
+    for k, v in clusters.items():
+        df_new['c' + str(k + 1)] = df[v].sum(1)
+    return df_new
 
 
 """

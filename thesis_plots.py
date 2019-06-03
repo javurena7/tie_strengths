@@ -371,8 +371,10 @@ def hourly_correlation(df, y, name='full_run/figs/hourly_correlation.pdf'):
     fig.tight_layout()
     fig.savefig(name)
 
-
 def hours_distributions(df, w, y, name='full_run/figs/hourly_distributions.pdf'):
+    """
+    Mi mi mi
+    """
     plots.latexify(6, 6, 1)
     fig, axn = plt.subplots(4, 1, sharex=True)
 
@@ -405,6 +407,56 @@ def hours_distributions(df, w, y, name='full_run/figs/hourly_distributions.pdf')
 
     axn[3].set_xticklabels(ticklabels, rotation=90)
     axn[3].set_xlabel(r'$h$')
+
+    fig.tight_layout()
+    fig.savefig(name)
+
+
+def decouple_overlap(w, y):
+    """
+    Decouple w and y by rescaling y according to similar w values (for a binning of w, we obtain the average overlap of the bin; we rescale all overlap values according to this)
+    """
+
+    n_cuts = 11
+    w_c = pd.qcut(w, n_cuts, labels=False)
+    av_ovs = {k: np.mean(y[w_c == k]) for k in range(n_cuts)}
+    w_c = w_c.map(av_ovs)
+    y_r = y/w_c
+
+    return y_r
+
+def hours_distributions_decoupled(df, w, y, name='full_run/figs/hour_distributions_decoupled.pdf'):
+    """
+    New plot after Mikko's comments, removing two graphs and adding a de-coupled of overlap
+    """
+
+    plots.latexify(6, 4, 1)
+    fig, axn = plt.subplots(3, 1, sharex=True)
+
+    wns = [np.mean(df.iloc[:, i].values) for i in range(df.shape[1])]
+    axn[0].plot(wns)
+    axn[0].set_ylabel(r'$\langle \phi^h_{ij} \rangle$')
+    axn[0].grid()
+    axn[0].text(0.04, 0.95, '(a)', transform=axn[0].transAxes, fontsize=12, verticalalignment='top')
+
+    y_avg = [spearmanr(y, df.iloc[:, i].values)[0] for i in range(df.shape[1])]
+    axn[1].plot(y_avg)
+    axn[1].set_ylabel(r'$Spearman(O_{ij}, \phi^h_{ij})$')
+    axn[1].grid()
+    axn[1].text(0.04, 0.95, '(b)', transform=axn[1].transAxes, fontsize=12, verticalalignment='top')
+
+    y_r = decouple_overlap(w, y)
+    y_r_avg = [np.average(y_r, weights=df.iloc[:, i].values) for i in range(df.shape[1])]
+    axn[2].plot(y_r_avg)
+    axn[2].set_ylabel(r'$\langle O^{-w}_{ij}| \phi^h_{ij} \rangle$')
+
+    step = 8
+    ticklabels = get_week_labels(step)
+    axn[2].set_xticks(range(0, df.shape[1], step))
+    axn[2].set_xticklabels(ticklabels, rotation=90)
+    axn[2].set_xlabel(r'$h$')
+    axn[2].grid()
+    axn[2].text(0.04, 0.95, '(c)', transform=axn[2].transAxes, fontsize=12, verticalalignment='top')
 
     fig.tight_layout()
     fig.savefig(name)
