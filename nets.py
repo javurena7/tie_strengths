@@ -584,10 +584,30 @@ def number_of_bursty_trains(x, delta):
 
 
 def bursty_train_stats(x, delta, start=None, end=None):
+    """
+    Obtain network bursty train statistics, used by function get_bursty_stats.
+
+    Uses:
+    x: sequence of timestamp events
+    delta: delta-t parameter for observation data
+    start: timestamp for start of observation period
+    end: timestamp for end of observation period
+
+    Returns:
+    res: list containing bursty train results
+        - bt_mu: average number of events in bursty trains
+        - bt_sig: std dev of events in bursty trains
+        - bt_cv: coef of variation of events in bursty trains
+        - bt_n: number of bursty trains
+        - bt_tmu: average location of bursty trains
+        - bt_tsig: std of location of bursty trains
+        - bt_tsig1:
+        - bt_logt: test statistic for normality
+    """
     if len(x) > 1:
         e = 1
-        t_dist = [x[0]]
-        e_dist = []
+        e_dist = [] # List containing the distributin of events per bursty train
+        t_dist = [x[0]] # List containing the times of bursty trains
         for t0, t1 in zip(x[:-1], x[1:]):
             if t1 - t0 < delta:
                 e += 1

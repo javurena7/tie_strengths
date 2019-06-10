@@ -247,7 +247,7 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
-    def get_bursty_stats(self):
+    def get_bursty_stats(self, delta=None):
         """
         Stats for distribution of bursty trains (P(E), Numb of BTs, distr of BTs in time)
 
@@ -260,6 +260,8 @@ class TieStrengths(object):
         bt_tsig: std distribution of bt in time
         bt_logt: test for uniformity of bt in time
         """
+        if delta is None:
+            delta = self.delta
         w = open(os.path.join(self.run_path, 'bursty_train_stats.txt'), 'wb')
         colnames = ['0', '1', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_n', 'bt_tmu', 'bt_tsig', 'bt_tsig1', 'bt_logt']
         w.write(' '.join(colnames) + '\n')
@@ -267,7 +269,7 @@ class TieStrengths(object):
             row = r.readline()
             while row:
                 e0, e1, times = utils.parse_time_line(row)
-                res = bursty_train_stats(times, 3600, self.first_date, self.last_date)
+                res = bursty_train_stats(times, delta, self.first_date, self.last_date)
                 w.write(' '.join([str(e0), str(e1)] + [str(round(l, 4)) for l in res]) + '\n')
                 row = r.readline()
         w.close()
