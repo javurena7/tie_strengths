@@ -585,7 +585,7 @@ def number_of_bursty_trains(x, delta):
 
 def bursty_train_stats(x, delta, start=None, end=None):
     """
-    Obtain network bursty train statistics, used by function get_bursty_stats.
+    Obtain bursty train statistics given a sequence of timestamps, used by function get_bursty_stats.
 
     Uses:
     x: sequence of timestamp events
@@ -626,7 +626,6 @@ def bursty_train_stats(x, delta, start=None, end=None):
 
     if start is not None:
         res += uniform_time_statistics(t_dist, start, end)
-
     return res
 
 

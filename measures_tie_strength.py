@@ -262,7 +262,12 @@ class TieStrengths(object):
         """
         if delta is None:
             delta = self.delta
-        w = open(os.path.join(self.run_path, 'bursty_train_stats.txt'), 'wb')
+            start = self.first_date
+            end = self.last_date
+        else:
+            start = None
+            end = None
+        w = open(os.path.join(self.run_path, 'bursty_train_stats_' + str(delta) + '.txt'), 'wb')
         colnames = ['0', '1', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_n', 'bt_tmu', 'bt_tsig', 'bt_tsig1', 'bt_logt']
         w.write(' '.join(colnames) + '\n')
         with open(self.paths['full_times_dict'], 'r') as r:
@@ -273,6 +278,12 @@ class TieStrengths(object):
                 w.write(' '.join([str(e0), str(e1)] + [str(round(l, 4)) for l in res]) + '\n')
                 row = r.readline()
         w.close()
+
+
+    def compute_bursty_trains_deltas(self):
+        deltas = [60 * i for i in [1, 5, 30, 2*60, 5*60, 10*60, 24*60, 7*24*60]]
+        for delta in deltas:
+            get_bursty_stats(delta)
 
     def get_ietd_stats(self):
         """
