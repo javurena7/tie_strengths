@@ -49,14 +49,17 @@ def net_colormap(specs):
     return n_size, n_col
 
 
-def plot_net(specs = {'n01': 5, 'n0': 36, 'n1': 50}, adj=.2):
+def plot_net(specs = {'n01': 5, 'n0': 36, 'n1': 50}, adj=.2, ax=None):
     net = create_network(specs)
-    fig, ax = plt.subplots()
+    if ax is None:
+        fig, ax = plt.subplots()
     node_size, node_color = net_colormap(specs)
     edge_color = edge_colormaps(net)
     pos = nx.spring_layout(net)
     pos = adjust_pos(pos, specs, adj)
     nx.draw_networkx(net, pos=pos, ax=ax, node_size=node_size, node_color=node_color, edge_color=edge_color, width=2, with_labels=False)
+    ax.axis('off')
+
 
 
 def adjust_pos(pos, specs, adj=.1):
@@ -69,6 +72,41 @@ def adjust_pos(pos, specs, adj=.1):
         else:
             pos[node] += -adj * v
     return pos
+
+
+
+def plot_ts(times, obs_w, ax=None, obs_w_l=.15, levs=.1):
+    ltimes = len(times)
+    times = [obs_w[0]] + times + [obs_w[1]]
+    times = [(t - obs_w[0])/(obs_w[1] - obs_w[0] + 0.) for t in times]
+    if fax is None:
+        fig, ax = plt.subplots(figsize=(8.8, 4))
+    obs_w_l = obs_w_l
+    levs = levs
+    levels = [obs_w_l] +  [levs] * ltimes + [obs_w_l]
+
+    stemc = ax.stem(times, levels, linefmt='k-', basefmt='k-')
+    stemc[0].set_visible(False) #Remove 'dots' on top of stem plot
+
+    ts_levs = (levs - obs_w_l)
+    print(ts_levs)
+    stemc[1][0].set_ydata([ts_levs, obs_w_l])
+    stemc[1][0].set_ls('--') #Change color and style of first and last lines
+    stemc[1][0].set_color('r')
+
+    stemc[1][-1].set_ydata([ts_levs, obs_w_l])
+    stemc[1][-1].set_ls('--')
+    stemc[1][-1].set_color('r')
+
+    stemc[2].set_ydata([levs/2] * 2) # move base to the middle
+
+    ax.set_ylim((ts_levs, obs_w_l))
+    ax.axis('off')
+
+
+def plot_main_figure(obs_w):
+    fig, axs = plt.subplots(2, 3, figsize=(9, 6))
+
 
 
 
