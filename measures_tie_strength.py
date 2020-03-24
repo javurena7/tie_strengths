@@ -559,7 +559,7 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
-    def _join_dataframes(self, df_list=['neighbors', 'ietd', 'btrain', 'reciprocity'], mode_list=['outer', 'outer', 'outer'], return_df = False):
+    def _join_dataframes(self, df_list=['neighbors', 'ietd', 'btrain', 'reciprocity', 'intensity'], mode_list=['outer', 'outer', 'outer', 'outer'], return_df = False):
         df = pd.read_table(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
             if name == 'node_lens':
