@@ -177,6 +177,28 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
+
+    def get_intensity_measures(self):
+        """
+        Obtain different intensity measures: total call length, avg call length \
+                number of days/hours with contacts
+        """
+
+        self.paths['intensity'] = os.path.join(self.run_path, 'intensity.txt')
+        w = open(self.paths['intensity'], 'wb')
+        names = ['0', '1', 'len', 'avg_len', 'w_hrs', 'w_day']
+        w.write(' '.join(names) + '\n')
+
+        with open(self.paths['call_times'], 'r') as r:
+            row = r.readline()
+            while row:
+                e0, e1, times, lens = utils.parse_time_line(row, True)
+                intens = intensity_stats(times, lens)
+                w.write(' '.join([e0, e1] + intens) + '\n')
+                row = r.readline()
+        w.close()
+
+
     def get_reciprocity(self):
         self.paths['reciprocity'] = os.path.join(self.run_path, 'reciprocity.txt')
         rep_dic = reciprocity(self.paths['logs'])

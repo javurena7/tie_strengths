@@ -274,6 +274,26 @@ def hour_weekly_call_distribution(x, lengths=None):
     return [round(v/t, 4) for v in vec]
 
 
+def intensity_stats(x, lens):
+    """
+    Returns list with total call lenght, avg len, number of hours with calls and days
+    """
+    stats = []
+
+    w_len = sum(lens)
+    stats.append(w_len)
+    stats.append(w_len / (len(lens) + 0.))
+
+    hours = [t / 3600 for t in x]
+    stats.append(len(set(hours)))
+    days = [t / 24 for t in x]
+    stats.append(len(set(days)))
+
+    return stats
+
+
+
+
 def hour_daily_call_distribution(x):
     """
     Obtain the daily call distribution for each edge, binning by hour
