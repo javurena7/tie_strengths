@@ -194,6 +194,7 @@ class TieStrengths(object):
             while row:
                 e0, e1, times, lens = utils.parse_time_line(row, True)
                 intens = intensity_stats(times, lens)
+                intens = [str(ints) for ints in intens]
                 w.write(' '.join([e0, e1] + intens) + '\n')
                 row = r.readline()
         w.close()
