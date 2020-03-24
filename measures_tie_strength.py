@@ -59,7 +59,7 @@ class TieStrengths(object):
         rm = False
         # Create temporal file from logs
         if not all([os.path.isfile(self.paths['full_times_dict']), \
-                os.path.isfile(self.paths['sms_times']), os.path.isfile(self.paths['call_times'])]):
+                os.path.isfile(self.paths['call_times'])]):
             awk_tmp_times(self.paths['logs'], tmp_file, run_path)
 
             rm = True
@@ -72,9 +72,9 @@ class TieStrengths(object):
             print('Creating calls dictionary...\n')
             awk_calls(tmp_file, self.paths['call_times'])
         # Create file with sms times for each edge
-        if not os.path.isfile(self.paths['sms_times']):
-            print('Creating sms dictionary...\n')
-            awk_sms(tmp_file, self.paths['sms_times'])
+#        if not os.path.isfile(self.paths['sms_times']):
+#            print('Creating sms dictionary...\n')
+#            awk_sms(tmp_file, self.paths['sms_times'])
 
         if rm:
             remove_tmp(tmp_file)
@@ -181,6 +181,7 @@ class TieStrengths(object):
         self.paths['reciprocity'] = os.path.join(self.run_path, 'reciprocity.txt')
         rep_dic = reciprocity(self.paths['logs'])
         w = open(self.paths['reciprocity'], 'wb')
+        w.write('0 1 r\n')
         with open(self.paths['net'], 'r') as r:
             row = r.readline()
             while row:
@@ -267,7 +268,8 @@ class TieStrengths(object):
         else:
             start = None
             end = None
-        w = open(os.path.join(self.run_path, 'bursty_train_stats_' + str(delta) + '.txt'), 'wb')
+        self.paths['btrain'] = os.path.join(self.run_path, 'btrain_stats_' + str(delta) + '.txt')
+        w = open(self.paths['btrain'], 'wb')
         colnames = ['0', '1', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_n', 'bt_tmu', 'bt_tsig', 'bt_tsig1', 'bt_logt']
         w.write(' '.join(colnames) + '\n')
         with open(self.paths['full_times_dict'], 'r') as r:
@@ -291,8 +293,9 @@ class TieStrengths(object):
 
         Preeliminary:
         """
+        self.paths['ietd'] = os.path.join(self.run_path, 'ietd_stats.txt')
         w = open(os.path.join(self.run_path, 'ietd_stats.txt'), 'wb')
-        colnames = ['0', '1', 'mu', 'sig', 'b', 'mu_r', 'r_frsh', 'age', 't_stb', 'm']
+        colnames = ['0', '1', 'w', 'mu', 'sig', 'b', 'mu_r', 'r_frsh', 'age', 't_stb', 'm']
         w.write(' '.join(colnames) + '\n')
         with open(self.paths['full_times_dict'], 'r') as r:
             row = r.readline()
@@ -533,7 +536,7 @@ class TieStrengths(object):
                 row = r.readline()
         w.close()
 
-    def _join_dataframes(self, df_list=['neighbors', 'call_stats', 'sms_stats', 'node_lens'], mode_list=['outer', 'outer', 'inner'], return_df = False):
+    def _join_dataframes(self, df_list=['neighbors', 'ietd', 'btrain', 'reciprocity'], mode_list=['outer', 'outer', 'outer'], return_df = False):
         df = pd.read_table(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
             if name == 'node_lens':

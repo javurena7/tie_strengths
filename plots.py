@@ -389,7 +389,7 @@ def linlinheatmap(x, y, z, n_bins_x=30, n_bins_y=30, stat='mean', xlabel=r'$w$ (
     return fig, ax
 
 
-def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(3, 5000), ylim=(0, .3), gridsize=(30, 55), xlabel=r'$w_{ij}$', ylabel=r'$O_{ij}$', height=5):
+def loglinjointdistr(x, y, bins=25, kind='hex', xlim=(1, 2000), ylim=(0, .1), gridsize=(30, 55), xlabel=r'$w_{ij}$', ylabel=r'$O_{ij}$', height=5):
     log_bins = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), bins + 1)
     lin_bins = np.linspace(ylim[0], ylim[1], bins + 1)
     g = sb.jointplot(x, y, kind=kind, xscale='log', marginal_kws=dict(color='w'), xlim=xlim, ylim=ylim, gridsize=gridsize, height=height)
@@ -433,9 +433,9 @@ def loglogjointdistr(x, y, bins=25, kind='hex', xlim=(.01, 1), ylim=(.01, .1), g
 
     counts_y = g.ax_marg_y.hist(y, bins=log_bins, orientation='horizontal')
     g.ax_marg_y.set(xlim=(0, max(counts_y[0])))
-    bin_means, _, _ = binned_statistic(x, y, bins=log_bins_x)
-    log_bins_x = np.logspace(xlim[0], xlim[1], bins)
-    g.ax_joint.plot(log_bins_x, bin_means, 'gray')
+    #bin_means, _, _ = binned_statistic(x, y, bins=log_bins_x)
+    #log_bins_x = np.logspace(xlim[0], xlim[1], bins)
+    #.ax_joint.plot(log_bins_x, bin_means, 'gray')
     g.ax_joint.set(xlabel=xlabel, ylabel=ylabel)
     return g
 

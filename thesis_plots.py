@@ -1,18 +1,41 @@
 from tie_strengths import plots
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt; plt.ion()
 from scipy.stats import rankdata
 import seaborn as sb
 from scipy.stats import pearsonr, spearmanr
+start = 1500
+end = 1990
+delta = 365
+path = str(start) + '_' + str(end) + '/' + str(delta)
 
-
-def weight_vs_overlap(w, o, name='full_run/figs/weight_overlap.pdf'):
-    g = plots.loglinjointdistr(w, o, height=5)
-    g.savefig(name)
+def weight_vs_overlap(w, o, path=path, name='weight_overlap.png', ylim=(0, .1), gridsize=(20, 60), xlabel=r'$w_{ij}$'):
+    g = plots.loglinjointdistr(w, o, height=5, ylim=ylim, gridsize=gridsize, xlabel=xlabel)
+    g.savefig(path + '/' + name)
     return g
 
-def overlaps_vs_weight(w, o, eo, factor=1.2, name='full_run/figs/weight_overlap_comp.pdf'):
+def histogram(x, bins=30, xscale='linear', xlabel='', name='', path=path, yscale='linear', xlim=None):
+    fig, ax = plt.subplots()
+    if xscale == 'log':
+        bins = np.logspace(np.log10(min(x)), np.log10(max(x)), bins)
+    ax.hist(x, bins, normed=True)
+    ax.set_xscale(xscale)
+    ax.set_xlabel(xlabel)
+    ax.set_yscale(yscale)
+    ax.set_title(path)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    fig.savefig(path + '/' + name)
+
+
+def weight_vs_overlap_rank(w, o, path=path, name= 'weight_overlap.png', ylim=(0, 1), xlim=(0, 1)):
+    n = len(w) + 0.
+    g = plots.linlinjointdistr(rankdata(w)/n, rankdata(o)/n, height=5, ylim=ylim, xlim=xlim, kind='scatter')
+    g.savefig(path + '/' + name)
+    return g
+
+def overlaps_vs_weight(w, o, eo, factor=1.2, name= path + '/weight_overlap_comp.pdf'):
     fig, ax = plots.log_bin_plot(w, o, factor, xlabel=None, ylabel=None, title=None, label=r'$O^c_{ij}$')
     fig, ax = plots.log_bin_plot(w, eo, factor, xlabel=None, ylabel=None, title=None, label=r'$O^f_{ij}$', fig=fig, ax=ax)
     ax.set_ylabel(r'$O_{ij}$')
@@ -23,7 +46,7 @@ def overlaps_vs_weight(w, o, eo, factor=1.2, name='full_run/figs/weight_overlap_
     fig.savefig(name)
     return fig, ax
 
-def overlaps_vs_weight_ranks(w, o, eo, bins=30, name='full_run/figs/weight_overlap_rank.pdf'):
+def overlaps_vs_weight_ranks(w, o, eo, bins=30, name= path + '/weight_overlap_rank.pdf'):
     w = rankdata(w)/w.shape[0]
     fig, ax = plots.lin_bin_plot(w, o, bins, xlabel=None, ylabel=None, title=None, label=r'$O^c_{ij}$', arg='.')
     fig, ax = plots.lin_bin_plot(w, eo, bins, xlabel=None, ylabel=None, title=None, label=r'$O^f_{ij}$', fig=fig, ax=ax, arg='.')
@@ -35,11 +58,13 @@ def overlaps_vs_weight_ranks(w, o, eo, bins=30, name='full_run/figs/weight_overl
     fig.savefig(name)
     return fig, ax
 
-def recip_comparison(r, o, bins, name='full_run/figs/recip_comp.pdf'):
+def recip_comparison(r, o, bins, name= path + '/recip_comp.pdf'):
     idx = r < .5
     fig, ax = plt.subplots(1)
-    ax.hist(o[idx], bins, alpha=.5, normed=True, label=r'$r_{ij} < 0.5$')
-    ax.hist(o[~idx], bins, alpha=.5, normed=True, label=r'$r_{ij} = 0.5$')
+    n_r = round(o[idx].shape[0]/float(len(o)), 3)
+    n_ri = round(o[~idx].shape[0]/float(len(o)), 3)
+    ax.hist(o[idx], bins, alpha=.5, normed=True, label=r'$r_{ij} < 0.5$' + ',\n n={}'.format(n_r))
+    ax.hist(o[~idx], bins, alpha=.5, normed=True, label=r'$r_{ij} = 0.5$' + ',\n n={}'.format(n_ri))
     ax.set_xlabel(r'$O_{ij}$')
     ax.set_ylabel('Frequencies')
     ax.legend(loc=0)
@@ -47,7 +72,7 @@ def recip_comparison(r, o, bins, name='full_run/figs/recip_comp.pdf'):
     fig.savefig(name)
     return fig, ax
 
-def recip_overl_weight_ranks(r, w, o, bins=30, name='full_run/figs/recip_comp_weight.pdf'):
+def recip_overl_weight_ranks(r, w, o, bins=30, name= path + '/recip_comp_weight.pdf'):
     idx = r < .5
     w = rankdata(w)/w.shape[0]
     fig, ax = plots.lin_bin_plot(w[idx], o[idx], bins, xlabel=None, ylabel=None, title=None, label=r'$r_{ij} < 0.5$', arg='.')
@@ -60,14 +85,14 @@ def recip_overl_weight_ranks(r, w, o, bins=30, name='full_run/figs/recip_comp_we
     fig.savefig(name)
     return fig, ax
 
-def mu_vs_overlap(mu, o, name='full_run/figs/mu-iet_overlap.pdf'):
+def mu_vs_overlap(mu, o, name= path + '/mu-iet_overlap.pdf'):
     idx = mu > 0
     # Note, we are removing data with zero mu, which are 730000 links (mean w=4.2, and mean ovrl=.03)
     g = plots.loglinjointdistr(mu[idx] + 1, o[idx], height=5, xlabel=r'$\bar{\tau}_{ij}$', xlim=(1, 100))
     g.savefig(name)
     return g
 
-def mu_htmap(age, w, o, name='full_run/figs/mu_htmap.pdf'):
+def mu_htmap(age, w, o, name= path + '/mu_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(age)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -77,14 +102,14 @@ def mu_htmap(age, w, o, name='full_run/figs/mu_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def sig_vs_overlap(sig, o, name='full_run/figs/sig-iet_overlap.pdf'):
+def sig_vs_overlap(sig, o, name= path + '/sig-iet_overlap.pdf'):
     idx = sig > 0
     # Note, we are removing data with zero mu, which are 730000 links (mean w=4.2, and mean ovrl=.03)
     g = plots.loglinjointdistr(sig[idx] , o[idx], height=5, xlabel=r'$\sigma_{\tau}_{ij}$', xlim=(1, 100))
     g.savefig(name)
     return g
 
-def sig_htmap(sig, w, o, name='full_run/figs/sig_htmap.pdf'):
+def sig_htmap(sig, w, o, name= path + '/sig_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(sig)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -94,29 +119,32 @@ def sig_htmap(sig, w, o, name='full_run/figs/sig_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def b_vs_overlap(b, o, name='full_run/figs/b_overlap.pdf'):
+def b_vs_overlap(b, o, name= path + '/b_overlap.pdf'):
     idx = b.notnull()
-    g = plots.linlinjointdistr(b[idx], o[idx], height=5, xlabel=r'$B_{ij}$', xlim=(-.85, .85), gridsize=(35, 45))
-    g.savefig(name)
-    return g
+    fig, ax = plt.subplots()
+    ax.plot(b[idx], o[idx], '.')
+    fig, ax = plots.lin_bin_plot(b[idx], o[idx], xlabel=r'$B$', ylabel=r'$O | B$', fig=fig, ax=ax)
+    ax.set_ylim((0, .2))
+    fig.savefig(name)
+    return fig, ax
 
-def b_htmap(age, w, o, name='full_run/figs/b_htmap.pdf'):
-    plots.latexify(4.2, 4, 2)
-    n = len(o)
+def b_htmap(age, w, o, path=path, name='/b_htmap.pdf'):
+#    plots.latexify(4.2, 4, 2)
+    n = len(o) + 0.
     g = plots.linlinsbmap(rankdata(age)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
     g.axes.set_ylabel(r'$Rank(w_{ij})$')
     g.axes.set_xlabel(r'$Rank(B_{ij})$')
     g.axes = plots.format_axes(g.axes)
-    g.get_figure().savefig(name)
+    g.get_figure().savefig(path + '/' + name)
 
 
-def avg_relay_vs_overlap(mu_r, o, name='full_run/figs/mu_r_overlap.pdf'):
+def avg_relay_vs_overlap(mu_r, o, name= path + '/mu_r_overlap.pdf'):
     idx = (mu_r.notnull()) & (mu_r < np.inf)
     g = plots.loglinjointdistr(mu_r[idx] + .5, o[idx], height=5, xlabel=r'$\bar{\tau}_R$', xlim=(.9, 70), gridsize=(25, 35))
     g.savefig(name)
 
 
-def avg_relay_htmap(age, w, o, name='full_run/figs/mu-r_htmap.pdf'):
+def avg_relay_htmap(age, w, o, name= path + '/mu-r_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(age)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -125,12 +153,12 @@ def avg_relay_htmap(age, w, o, name='full_run/figs/mu-r_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def rel_frsh_vs_overlap(r, o, name='full_run/figs/r-fresh_overlap.pdf'):
+def rel_frsh_vs_overlap(r, o, name= path + '/r-fresh_overlap.pdf'):
     idx = (r.notnull()) & (r < np.inf)
     g = plots.loglinjointdistr(r[idx] + 1, o[idx], height=5, xlabel=r'$\hat{f_r}$', xlim=(1, 1300))
     g.savefig(name)
 
-def rel_frsh_htmap(age, w, o, name='full_run/figs/r-fresh_htmap.pdf'):
+def rel_frsh_htmap(age, w, o, name= path + '/r-fresh_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(age)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -139,12 +167,12 @@ def rel_frsh_htmap(age, w, o, name='full_run/figs/r-fresh_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def age_vs_overlap(age, o, name='full_run/figs/age_overlap.pdf'):
+def age_vs_overlap(age, o, name= path + '/age_overlap.pdf'):
     g = plots.linlinjointdistr(age, o, height=5, xlabel=r'$age$', xlim=(0, max(age)))
     g.savefig(name)
 
 
-def age_htmap(age, w, o, name='full_run/figs/age_htmap.pdf'):
+def age_htmap(age, w, o, name= path + '/age_htmap.pdf'):
     plots.latexify(4.1, 4.2, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(age)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -154,12 +182,12 @@ def age_htmap(age, w, o, name='full_run/figs/age_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def tmp_stab_vs_overlap(t, o, name='full_run/figs/t-stab_overlap.pdf'):
+def tmp_stab_vs_overlap(t, o, name= path + '/t-stab_overlap.pdf'):
     g = plots.linlinjointdistr(t, o, height=5, xlabel=r'$TS$', xlim=(-1, 120))
     g.savefig(name)
 
 
-def tmp_stab_htmap(t, w, o, name='full_run/figs/t-stab_htmap.pdf'):
+def tmp_stab_htmap(t, w, o, name= path + '/t-stab_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(t)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -168,12 +196,12 @@ def tmp_stab_htmap(t, w, o, name='full_run/figs/t-stab_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def m_vs_overlap(m, o, name='full_run/figs/iet-m_overlap.pdf'):
+def m_vs_overlap(m, o, name= path + '/iet-m_overlap.pdf'):
     idx = m.notnull()
     g = plots.linlinjointdistr(m[idx], o[idx], height=5, xlabel=r'$M_{ij}$', xlim=(-1, 1))
     g.savefig(name)
 
-def m_htmap(m, w, o, name='full_run/figs/iet-m_htmap.pdf'):
+def m_htmap(m, w, o, name= path + '/iet-m_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(m)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -182,12 +210,12 @@ def m_htmap(m, w, o, name='full_run/figs/iet-m_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def bt_mu_vs_overlap(mu, o, name='full_run/figs/mu-bt_overlap.pdf'):
+def bt_mu_vs_overlap(mu, o, name= path + '/mu-bt_overlap.pdf'):
     g = plots.loglinjointdistr(1/mu, o, height=5, xlabel=r'$\frac{1}{\bar{E}}$', xlim=(1./15, 1.1), gridsize=(45, 55))
     g.savefig(name)
 
 
-def bt_mu_htmap(mu, w, o, name='full_run/figs/bt-mu_htmap.pdf'):
+def bt_mu_htmap(mu, w, o, name= path + '/bt-mu_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(1/mu)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -197,13 +225,13 @@ def bt_mu_htmap(mu, w, o, name='full_run/figs/bt-mu_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def bt_cv_vs_overlap(cv, o, name='full_run/figs/cv-bt_overlap.pdf'):
+def bt_cv_vs_overlap(cv, o, name= path + '/cv-bt_overlap.pdf'):
     idx = (cv.notnull()) & (cv < np.inf)
     g = plots.loglinjointdistr(cv[idx] + 1, o[idx], height=5, xlabel=r'$CV_E$', xlim=(1, 8), gridsize=(45, 55))
     g.savefig(name)
 
 
-def bt_cv_htmap(cv, w, o, name='full_run/figs/bt-cv_htmap.pdf'):
+def bt_cv_htmap(cv, w, o, name= path + '/bt-cv_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(cv)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -213,12 +241,12 @@ def bt_cv_htmap(cv, w, o, name='full_run/figs/bt-cv_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def bt_n_vs_overlap(n, o, name='full_run/figs/bt-n_overlap.pdf'):
+def bt_n_vs_overlap(n, o, name= path + '/bt-n_overlap.pdf'):
     g = plots.loglinjointdistr(n+1, o, height=5, xlim=(2, 1000), gridsize=(25, 45), xlabel=r'$N_E$')
     g.savefig(name)
 
 
-def bt_n_htmap(en, w, o, name='full_run/figs/bt-n_htmap.pdf'):
+def bt_n_htmap(en, w, o, name= path + '/bt-n_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(en)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -228,12 +256,12 @@ def bt_n_htmap(en, w, o, name='full_run/figs/bt-n_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def bt_tmu_vs_overlap(tmu, o, name='full_run/figs/bt-tmu_overlap.pdf'):
+def bt_tmu_vs_overlap(tmu, o, name= path + '/bt-tmu_overlap.pdf'):
     g = plots.linlinjointdistr(tmu, o, xlim=(0, 1), xlabel=r'$\bar{t^b}$', ylim=(0, .3))
     g.savefig(name)
 
 
-def bt_tmu_htmap(tmu, w, o, name='full_run/figs/bt-tmu_htmap.pdf'):
+def bt_tmu_htmap(tmu, w, o, name= path + '/bt-tmu_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(tmu)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -243,12 +271,12 @@ def bt_tmu_htmap(tmu, w, o, name='full_run/figs/bt-tmu_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def bt_tsig_vs_overlap(tsig, o, name='full_run/figs/bt-tsig_overlap.pdf'):
+def bt_tsig_vs_overlap(tsig, o, name= path + '/bt-tsig_overlap.pdf'):
     idx = tsig.notnull()
     g = plots.linlinjointdistr(tsig[idx], o[idx], xlim=(0, .5), xlabel=r'$\sigma_{t^b}$')
     g.savefig(name)
 
-def bt_tsig_htmap(tsig, w, o, name='full_run/figs/bt-tsig_htmap.pdf'):
+def bt_tsig_htmap(tsig, w, o, name= path + '/bt-tsig_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(tsig)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -257,12 +285,12 @@ def bt_tsig_htmap(tsig, w, o, name='full_run/figs/bt-tsig_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def bt_tlog_vs_overlap(tlog, o, name='full_run/figs/bt-tlog_overlap.pdf'):
+def bt_tlog_vs_overlap(tlog, o, name= path + '/bt-tlog_overlap.pdf'):
     idx = (tlog.notnull()) & (tlog < np.inf)
     g = plots.linlinjointdistr(tlog[idx], o[idx], xlim=(-5, 6), xlabel=r'$\log{(T_{t^b})}$', gridsize=(45, 55))
     g.savefig(name)
 
-def bt_tlog_htmap(tlog, w, o, name='full_run/figs/bt-tlog_htmap.pdf'):
+def bt_tlog_htmap(tlog, w, o, name= path + '/bt-tlog_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(tlog)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -271,12 +299,12 @@ def bt_tlog_htmap(tlog, w, o, name='full_run/figs/bt-tlog_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def recipt_vs_overlap(re, o, name='full_run/figs/recip_overlap.pdf'):
+def recipt_vs_overlap(re, o, name= path + '/recip_overlap.pdf'):
     g = plots.linlinjointdistr(re, o, xlim=(0, .5), xlabel=r'$r_{ij}$')
     g.savefig(name)
 
 
-def recipt_htmap(re, w, o, name='full_run/figs/recip_htmap.pdf'):
+def recipt_htmap(re, w, o, name= path + '/recip_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(o)
     g = plots.linlinsbmap(rankdata(re)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -286,19 +314,19 @@ def recipt_htmap(re, w, o, name='full_run/figs/recip_htmap.pdf'):
     g.get_figure().savefig(name)
 
 
-def jsd_vs_overlap(jsd, o, name='full_run/figs/jsd_overlap.pdf'):
+def jsd_vs_overlap(jsd, o, name= path + '/jsd_overlap.pdf'):
     g = plots.loglinjointdistr(jsd + .9, o, xlim=(.9, 4500), xlabel=r'$JSD_{ij}$')
     g.savefig(name)
 
-def jsd_diff_vs_overlap(j1, j2, o, name='full_run/figs/jsd_diff_overlap.pdf'):
+def jsd_diff_vs_overlap(j1, j2, o, name= path + '/jsd_diff_overlap.pdf'):
     g = plots.loglinjointdistr(np.abs(j1 - j2) + 1, o, xlim=(1, 3000), xlabel=r'$|JSD_{i} - JSD_j|$')
     g.savefig(name)
 
-def jsd_mean_vs_overlap(j1, j2, o, name='full_run/figs/jsd_mean_overlap.pdf'):
+def jsd_mean_vs_overlap(j1, j2, o, name= path + '/jsd_mean_overlap.pdf'):
     g = plots.loglinjointdistr(np.sqrt(j1*j2)+1, o, xlim=(1, 5000), xlabel=r'$\sqrt{JSD_{i} * JSD_j}$')
     g.savefig(name)
 
-def jsd_htmap(jsd, w, o, name='full_run/figs/jsd_htmap.pdf'):
+def jsd_htmap(jsd, w, o, name= path + '/jsd_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(jsd)
     g = plots.linlinsbmap(rankdata(jsd)/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -307,7 +335,7 @@ def jsd_htmap(jsd, w, o, name='full_run/figs/jsd_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def jsd_all_diff_map(jsd, j1, j2, o, name='full_run/figs/jsd_all_htmap.pdf'):
+def jsd_all_diff_map(jsd, j1, j2, o, name= path + '/jsd_all_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(jsd)
     g = plots.linlinsbmap(rankdata(jsd)/n, rankdata(np.abs(j1 - j2))/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -316,7 +344,7 @@ def jsd_all_diff_map(jsd, j1, j2, o, name='full_run/figs/jsd_all_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def jsd_all_weight_map(jsd, j1, j2, w, name='full_run/figs/jsd_all_weight_htmap.pdf'):
+def jsd_all_weight_map(jsd, j1, j2, w, name= path + '/jsd_all_weight_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(jsd)
     g = plots.linlinsbmap(rankdata(jsd)/n, rankdata(np.abs(j1 - j2))/n, np.log(w), y_bins=45, z_label=r'$\log(w_{ij})$')
@@ -325,7 +353,7 @@ def jsd_all_weight_map(jsd, j1, j2, w, name='full_run/figs/jsd_all_weight_htmap.
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def jsd_diff_htmap(j1, j2, w, o, name='full_run/figs/jsd_diff_htmap.pdf'):
+def jsd_diff_htmap(j1, j2, w, o, name= path + '/jsd_diff_htmap.pdf'):
     plots.latexify(4.2, 4, 2)
     n = len(j1)
     g = plots.linlinsbmap(rankdata(np.abs(j1 - j2))/n, rankdata(w)/n, o, y_bins=45, z_label=r'$O_{ij}$')
@@ -334,7 +362,7 @@ def jsd_diff_htmap(j1, j2, w, o, name='full_run/figs/jsd_diff_htmap.pdf'):
     g.axes = plots.format_axes(g.axes)
     g.get_figure().savefig(name)
 
-def weekly_corrs(corrs, name='full_run/figs/weekly_correlations.pdf'):
+def weekly_corrs(corrs, name= path + '/weekly_correlations.pdf'):
 
     plots.latexify(5.5, 5, 1)
     g = sb.heatmap(corrs, xticklabels=8, yticklabels=8)
@@ -358,7 +386,7 @@ def get_week_labels(step=8):
     ticklabels = [d + '  ' + h for d, h in product(days, hours) if len(h) > 0]
     return ticklabels
 
-def hourly_correlation(df, y, name='full_run/figs/hourly_correlation.pdf'):
+def hourly_correlation(df, y, name= path + '/hourly_correlation.pdf'):
     step = 8
     ticklabels = get_week_labels(step)
     av = [spearmanr(y, df.iloc[:, i])[0] for i in range(df.shape[1])]
@@ -371,7 +399,7 @@ def hourly_correlation(df, y, name='full_run/figs/hourly_correlation.pdf'):
     fig.tight_layout()
     fig.savefig(name)
 
-def hours_distributions(df, w, y, name='full_run/figs/hourly_distributions.pdf'):
+def hours_distributions(df, w, y, name= path + '/hourly_distributions.pdf'):
     """
     Mi mi mi
     """
@@ -425,7 +453,7 @@ def decouple_overlap(w, y):
 
     return y_r
 
-def hours_distributions_decoupled(df, w, y, name='full_run/figs/hour_distributions_decoupled.pdf'):
+def hours_distributions_decoupled(df, w, y, name= path + '/hour_distributions_decoupled.pdf'):
     """
     New plot after Mikko's comments, removing two graphs and adding a de-coupled of overlap
     """
@@ -494,7 +522,7 @@ if __name__=="__main__":
 
     idx = (tmp.ov_mean > 0) & (tmp.ovrl > 0)
     g = plots.loglogjointdistr(tmp.ovrl[idx], tmp.ov_mean[idx], xlim=(.01, 1), ylim=(.01, 1), xlabel=r'$O_{ij}$', ylabel=r'$\bar{O^t_{ij}}$', gridsize=(55, 35))
-    g.savefig('full_run/figs/overlap_joint.pdf')
+    g.savefig(path + '/overlap_joint.pdf')
 
     fig, ax = plt.subplots(1)
     ax.hist(tmp.ov_mean, 100, alpha=.3, label=r'$\bar{O^t_{ij}}$', log=True, normed=True)

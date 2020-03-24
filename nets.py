@@ -139,7 +139,7 @@ def awk_sms(tmp_file, output_path):
 
 def awk_calls(tmp_file, output_path):
 
-    main_awk = "{if ($4 == 2) {if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3 FS $5; else a[$1 FS $2] = $3 FS $5;}} END {for (i in a) print i, a[i];}"
+    main_awk = "{if (a[$1 FS $2]) a[$1 FS $2]=a[$1 FS $2] FS $3 FS $5; else a[$1 FS $2] = $3 FS $5;} END {for (i in a) print i, a[i];}"
     cmd_list = ["awk", "'", main_awk, "'", tmp_file, ">", output_path]
     p = subprocess.Popen(' '.join(cmd_list), shell=True)
     p.wait()
@@ -725,13 +725,17 @@ def iet_stats(x, end, start):
     memory = memory coefficient of the tie
     """
 
-    c_norm = 60*60*24
+    c_norm = 1 #60*60*24
     last = (end - start)/c_norm
     estimator = events.IntereventTimeEstimator(last, mode='censorall')
+    w = len(x)
     x = [(t - start)/c_norm for t in x]
     estimator.add_time_seq(x)
+
     mu = estimator.estimate_moment(1, 'km')
     mu_na = estimator.estimate_moment(1, 'naive')
+    if not mu_na:
+        mu_na = np.inf
 
     try:
         mu2 = estimator.estimate_moment(2, 'km')
@@ -763,7 +767,7 @@ def iet_stats(x, end, start):
     except:
         m = np.nan
 
-    return [mu, sigma, burst, mu_r, r_frsh, age, t_stab, m]
+    return [w, mu_na, sigma, burst, mu_r, r_frsh, age, t_stab, m]
 
 
 
@@ -772,7 +776,7 @@ def inter_event_times(x, end, start, method='km'):
     Obtains inter-event time estimators in terms of days
 
     """
-    c_norm = 60*60*24.
+    c_norm = 1.
     last = (end - start)/c_norm
     estimator = events.IntereventTimeEstimator(last, mode='censorall')
     x = [(t - start)/c_norm for t in x]
