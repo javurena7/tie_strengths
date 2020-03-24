@@ -286,7 +286,7 @@ def intensity_stats(x, lens):
 
     hours = [t / 3600 for t in x]
     stats.append(len(set(hours)))
-    days = [t / 24 for t in x]
+    days = [t / 24 for t in hours]
     stats.append(len(set(days)))
 
     return stats
