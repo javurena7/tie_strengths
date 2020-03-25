@@ -5,7 +5,7 @@ import pandas as pd
 Script for clusterizing given the ids
 """
 path = '/scratch/work/urenaj1/full/'
-clust_ids_path = path + 'reclusters_ids.p', 'r'
+clust_ids_path = path + 'reclusters_ids.p'
 ids_path = path + 'full_df_paper_ids.txt'
 week_df_path = path + 'week_vec_call.txt'
 output_path = path + 'clustered_df_paper.txt'
