@@ -560,20 +560,52 @@ class TieStrengths(object):
         w.close()
 
     def _join_dataframes(self, df_list=['neighbors', 'ietd', 'btrain', 'reciprocity', 'intensity'], mode_list=['outer', 'outer', 'outer', 'outer'], return_df = False):
-        df = pd.read_table(self.paths[df_list[0]], sep=' ')
+        df = pd.read_csv(self.paths[df_list[0]], sep=' ')
         for name, mode in zip(df_list[1:], mode_list):
             if name == 'node_lens':
-                df_2 = pd.read_table(self.paths[name], sep=' ', names=['0', 'n_len'])
+                df_2 = pd.read_csv(self.paths[name], sep=' ', names=['0', 'n_len'])
                 df_2['n_len'] = df_2['n_len'].apply(int)
-                df = pd.merge(df, df_2, on=['0'], how='inner')
-                df = pd.merge(df, df_2, left_on='1', right_on='0', how='inner', suffixes=['_0', '_1'])
+                df = df.merge(df_2, on=['0'], how='inner')
+                df = df.merge(df_2, left_on='1', right_on='0', how='inner', suffixes=['_0', '_1'])
             else:
-                df_2 = pd.read_table(self.paths[name], sep=' ')
-                df = pd.merge(df, df_2, on=['0', '1'], how=mode)
+                df_2 = pd.read_csv(self.paths[name], sep=' ')
+                df = df.merge(df_2, on=['0', '1'], how=mode)
         self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
         df.to_csv(self.paths['full_df'], sep=' ', index=False)
         if return_df:
             return df
+
+    def get_model_data(self, w_min=5):
+        df = pd.read_csv(self.paths['net'], sep=' ', names=['0', '1', 'w'])
+        df = df[df.w > w_min]
+        
+        df2 = pd.read_csv(self.paths['overlap'], sep=' ', names=['0', '1', 'ovrl'])
+        df = df.merge(df2, on=['0', '1'], how='inner')
+        
+        df2 = pd.read_csv(self.paths['temporal_overlap'], sep=' ')
+        df = df.merge(df2, on=['0', '1'], how='inner')
+        
+        df2 = pd.read_csv(self.paths['intensity'], sep=' ')
+        df = df.merge(df2, on=['0', '1'], how='inner')
+        
+        df2 = pd.read_csv(self.paths['ietd'], sep=' ')
+        df = df.merge(df2, on=['0', '1'], how='inner')
+        
+        df2 = pd.read_csv(self.paths['btrain'], sep=' ')
+        df = df.merge(df2, on=['0', '1'], how='inner')
+
+        df2 = pd.read_csv(self.paths['reciprocity'], sep=' ') #Note, this could be names=['0','1','r']
+        df = df.merge(df2, on=['0', '1'], how='inner')
+        
+        df2 = pd.read_csv(self.paths['daily_cycles_comp'], sep=' ')
+        df = df.merge(df2, on=['0', '1'], how='inner')
+
+        self.paths['full_df'] = os.path.join(self.run_path, 'full_df.txt')
+	df.to_csv(self.paths['full_df'], sep=' ', index=False)
+
+
+
+
 
 
     def df_preprocessing(self, transfs, na_values, df=None, drop_sms=False):
