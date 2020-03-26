@@ -148,8 +148,8 @@ def parse_edges(edge):
     for rowi in edge.iterrows():
         row = rowi[1]
         n01 = row['n_ij']
-        n0 = row['deg_0'] - n01
-        n1 = row['deg_1'] - n01
+        n0 = row['deg_0'] - n01 - 1
+        n1 = row['deg_1'] - n01 - 1
         edges[(int(row[0]), int(row[1]))] = {'n01': n01, 'n0': n0, 'n10': n1}
     return edges
 
@@ -163,7 +163,7 @@ def get_times(edges, times_path='../full_run/times_dict.txt'):
     edge_set = set([tuple(x) for sublist in edges.values() for y in sublist.values() for x in y])
     with open(times_path, 'r') as r:
         row = r.readline()
-        while (row) & (len(edge_set) > 0):
+        while (row is not None) & (len(edge_set) > 0):
             e0, e1, times = utils.parse_time_line(row)
             edge = (e0, e1)
             if edge in edge_set:
@@ -175,23 +175,20 @@ def get_times(edges, times_path='../full_run/times_dict.txt'):
 
 if __name__ == '__main__':
     import pandas as pd
-    import json
+    import pickle
     path = '/scratch/work/urenaj1/full/'
 
     df_path = path + 'full_df_paper.txt'
-    times_path = path + 'times_dict.txt'
+    times_path = path + 'times_dic.txt'
 
-    edges_outpath = path + 'mainplot_edges.json'
-    times_outpath = path + 'mainplot_times.json'
+    edges_outpath = path + 'mainplot_edges.p'
+    times_outpath = path + 'mainplot_times.p'
 
     df = pd.read_csv(df_path, sep=' ')
-    del df
 
     edges = get_edge_set(df)
+    del df
     times = get_times(edges, times_path)
 
-    json.dump(edges, open(edges_outpath, 'w'))
-    json.dump(times, open(times_outpath, 'w'))
-
-
-
+    pickle.dump(edges, open(edges_outpath, 'wb'))
+    pickle.dump(times, open(times_outpath, 'wb'))

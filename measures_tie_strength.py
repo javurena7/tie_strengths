@@ -579,7 +579,10 @@ class TieStrengths(object):
         df = pd.read_csv(self.paths['net'], sep=' ', names=['0', '1', 'w'])
         df = df[df.w > w_min]
         
-        df2 = pd.read_csv(self.paths['overlap'], sep=' ', names=['0', '1', 'ovrl'])
+        #df2 = pd.read_csv(self.paths['overlap'], sep=' ', names=['0', '1', 'ovrl'])
+        #df = df.merge(df2, on=['0', '1'], how='inner')
+        
+        df2 = pd.read_csv(self.paths['neighbors'], sep=' ')
         df = df.merge(df2, on=['0', '1'], how='inner')
         
         df2 = pd.read_csv(self.paths['temporal_overlap'], sep=' ')
