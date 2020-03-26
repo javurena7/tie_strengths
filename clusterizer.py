@@ -24,7 +24,7 @@ def clusters_to_df(df_path, clusters_path, output_path, ids=None):
     df_new = df[['0', '1']].copy()
 
     for k, v in clusters.items():
-        df_new['c' + str(k + 1)] = df[v].sum(1)
+        df_new['c' + str(int(k) + 1)] = df[v].sum(1)
     df_new.to_csv(output_path, sep=' ', index=False)
 
 clusters_to_df(week_df_path, clust_ids_path, output_path, ids_path)
