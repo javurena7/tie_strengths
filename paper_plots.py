@@ -10,16 +10,16 @@ def create_network(specs = {'n01': 2, 'n0': 3, 'n1': 5}):
     net.add_edge(0, 1)
 
     n = 2
-    for i in range(n, n + int(specs['n01'])):
+    for i in range(n, n + specs['n01']):
         net.add_edge(0, i)
         net.add_edge(1, i)
 
     n = len(net)
-    for i in range(n, n + int(specs['n0'])):
+    for i in range(n, n + specs['n0']):
         net.add_edge(0, i)
 
     n = len(net)
-    for i in range(n, n + int(specs['n10'])): #Note: this is supposed to be n1, not n10
+    for i in range(n, n + specs['n1']):
         net.add_edge(1, i)
 
     return net
@@ -90,7 +90,8 @@ def plot_ts(times, obs_w, ax=None, obs_w_l=.15, levs=.1):
     stemc[0].set_visible(False) #Remove 'dots' on top of stem plot
 
     ts_levs = (levs - obs_w_l)
-    print(ts_levs)
+    for i in range(1, len(stemc[1]) - 1):
+        stemc[1][i].set_lw(.5)
     stemc[1][0].set_ydata([ts_levs, obs_w_l])
     stemc[1][0].set_ls('--') #Change color and style of first and last lines
     stemc[1][0].set_color('r')
@@ -136,7 +137,7 @@ def get_reduced_edge_set(edge_set, edge_values={}):
     if not edge_values:
         edge_values = {k: {0: 0, 2: 0} for k in edge_set}
     es = {k: {} for k in edge_set}
-    for k in edge_set:
+    for k in edge_values:
         es[k][0] = sorted(edge_set[k][0])[edge_values[k][0]]
         es[k][2] = sorted(edge_set[k][2])[edge_values[k][2]]
     return es
@@ -149,12 +150,12 @@ def get_edge_set(df):
     vrs = ['b', 't_stb', 'bt_n', 'out_call_div']
     data_vrs = ['0', '1', 'w', 'ovrl', 'n_ij', 'deg_0', 'deg_1']
     edges = {v: {} for v in vrs}
-    df = df[data_vrs + vrs][(df.w > 59) & (df.w < 80)].sort_values('ovrl')
+    df = df[data_vrs + vrs][(df.w > 30) & (df.w < 40)].sort_values('ovrl')
 
     for var in vrs:
         asc = True if var in ['t_stb', 'bt_n'] else False
-        edges[var][0] = parse_edges(df[df.ovrl < .03].sort_values(var, ascending=asc).head(20))
-        edges[var][2] = parse_edges(df[df.ovrl > .16].sort_values(var, ascending=(not asc)).head(10))
+        edges[var][0] = parse_edges(df[(df.ovrl < .03) & (df.ovrl > 0)].sort_values(var, ascending=asc).head(20))
+        edges[var][2] = parse_edges(df[(df.ovrl > .14) & (df.ovrl < .2)].sort_values(var, ascending=(not asc)).head(20))
 
     return edges
 
