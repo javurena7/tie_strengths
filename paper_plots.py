@@ -10,16 +10,16 @@ def create_network(specs = {'n01': 2, 'n0': 3, 'n1': 5}):
     net.add_edge(0, 1)
 
     n = 2
-    for i in range(n, n + specs['n01']):
+    for i in range(n, n + int(specs['n01'])):
         net.add_edge(0, i)
         net.add_edge(1, i)
 
     n = len(net)
-    for i in range(n, n + specs['n0']):
+    for i in range(n, n + int(specs['n0'])):
         net.add_edge(0, i)
 
     n = len(net)
-    for i in range(n, n + specs['n1']):
+    for i in range(n, n + int(specs['n10'])): #Note: this is supposed to be n1, not n10
         net.add_edge(1, i)
 
     return net
@@ -107,24 +107,40 @@ def plot_ts(times, obs_w, ax=None, obs_w_l=.15, levs=.1):
 
 edge_values = {'b':{0:0, 2:0}, 'bt_n':{0:0, 2:0}, 't_stb':{0:0, 2:0}}
 
-def plot_main_figure(edge_set, edge_values):
+def plot_main_figure(edge_set, times_set, edge_values={}):
+    obs_w = [1167609600, 1177977600]
     fig = plt.figure(tight_layout=True)
     widths = [1, 1, 1]
     heights = [2.5, 1, 2.5, 1]
 
     spec = gridspec.GridSpec(ncols=3, nrows=4, width_ratios=widths, height_ratios=heights, hspace=.25, wspace=.1)
-    ##### TODO: remove this
-    times = [1167751219, 1167773133, 1168025203, 1168191776, 1168350076, 1168721201, 1169472190, 1169732333]
-    obs_w = [1167751219 - 3600 * 24 * 3, 1169732333 + 3600 * 24 * 10]
+    edges = get_reduced_edge_set(edge_set, edge_values)
     col_var = ['b', 'bt_n', 't_stb']
     for col in range(3):
         var = col_var[col]
-        for row in [0, 2]:
+        for row in [0, 2]: #row corresponds to weak=0/strong=2 case
             ax = fig.add_subplot(spec[row, col])
-            plot_net(edge_set[var][row][0], ax=ax)
+            edge = edges[var][row]
+
+            edge_specs = edge_set[var][row][edge]
+            plot_net(edge_specs, ax=ax)
 
             ax2 = fig.add_subplot(spec[row + 1, col])
+            times = times_set[edge]
             plot_ts(times, obs_w, ax=ax2)
+
+def get_reduced_edge_set(edge_set, edge_values={}):
+    """
+    Retuns the a dictionary where we select the nth (edge, times) pair for each [var][weak/strong] case. edges are sorted according to the first node id.
+    """
+    if not edge_values:
+        edge_values = {k: {0: 0, 2: 0} for k in edge_set}
+    es = {k: {} for k in edge_set}
+    for k in edge_set:
+        es[k][0] = sorted(edge_set[k][0])[edge_values[k][0]]
+        es[k][2] = sorted(edge_set[k][2])[edge_values[k][2]]
+    return es
+
 
 def get_edge_set(df):
     """
@@ -150,7 +166,7 @@ def parse_edges(edge):
         n01 = row['n_ij']
         n0 = row['deg_0'] - n01 - 1
         n1 = row['deg_1'] - n01 - 1
-        edges[(int(row[0]), int(row[1]))] = {'n01': n01, 'n0': n0, 'n10': n1}
+        edges[(int(row[0]), int(row[1]))] = {'n01': int(n01), 'n0': int(n0), 'n1': int(n1)}
     return edges
 
 
@@ -176,6 +192,7 @@ def get_times(edges, times_path='../full_run/times_dict.txt'):
 if __name__ == '__main__':
     import pandas as pd
     import pickle
+    import os
     path = '/scratch/work/urenaj1/full/'
 
     df_path = path + 'full_df_paper.txt'
@@ -184,11 +201,17 @@ if __name__ == '__main__':
     edges_outpath = path + 'mainplot_edges.p'
     times_outpath = path + 'mainplot_times.p'
 
-    df = pd.read_csv(df_path, sep=' ')
+    if not os.path.exists(times_outpath):
+        df = pd.read_csv(df_path, sep=' ')
 
-    edges = get_edge_set(df)
-    del df
-    times = get_times(edges, times_path)
+        edges = get_edge_set(df)
+        del df
+        times = get_times(edges, times_path)
 
-    pickle.dump(edges, open(edges_outpath, 'wb'))
-    pickle.dump(times, open(times_outpath, 'wb'))
+        pickle.dump(edges, open(edges_outpath, 'wb'))
+        pickle.dump(times, open(times_outpath, 'wb'))
+    else:
+        edges = pickle.load(open(edges_outpath, 'rb'))
+        times = pickle.load(open(times_outpath, 'rb'))
+
+
