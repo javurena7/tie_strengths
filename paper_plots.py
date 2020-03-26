@@ -62,8 +62,10 @@ def plot_net(specs = {'n01': 5, 'n0': 36, 'n1': 50}, adj=.2, ax=None):
     ax.axis('off')
 
 
-
 def adjust_pos(pos, specs, adj=.1):
+    """
+    Readjusts the position of nodes that are too close to the main tie
+    """
     ctr = (pos[0] + pos[1]) / 2
     v0 = pos[0] - pos[1]
     v = np.array([v0[0], -v0[1]])
@@ -76,7 +78,7 @@ def adjust_pos(pos, specs, adj=.1):
 
 
 
-def plot_ts(times, obs_w, ax=None, obs_w_l=.15, levs=.1):
+def plot_ts(times, obs_w, ax=None, obs_w_l=.15, levs=.1, specs={}, var='', varname=''):
     ltimes = len(times)
     times = [obs_w[0]] + times + [obs_w[1]]
     times = [(t - obs_w[0])/(obs_w[1] - obs_w[0] + 0.) for t in times]
@@ -105,16 +107,25 @@ def plot_ts(times, obs_w, ax=None, obs_w_l=.15, levs=.1):
     ax.set_ylim((ts_levs, obs_w_l))
     ax.axis('off')
 
+    if var:
+        w = int(specs.get('w', 0))
+        x = specs.get(var, 0)
+        if var == 't_stb':
+            x = np.round(x / 120., 2)
+        s = varname + '={}\t'.format(x) + r'$w$' + '={}'.format(w)
+        ax.annotate(s, xy=(.05, .15), xycoords='data')
+
 
 edge_values = {'b':{0:0, 2:0}, 'bt_n':{0:0, 2:0}, 't_stb':{0:0, 2:0}}
 
-def plot_main_figure(edge_set, times_set, edge_values={}):
+def plot_main_figure(edge_set, times_set, edge_values={}, path=''):
     obs_w = [1167609600, 1177977600]
-    fig = plt.figure(tight_layout=True)
+    varnames = {'b': r'$B$', 'bt_n': r'$N^E$', 't_stb': r'$TS$'}
+    fig = plt.figure()
     widths = [1, 1, 1]
     heights = [2.5, 1, 2.5, 1]
 
-    spec = gridspec.GridSpec(ncols=3, nrows=4, width_ratios=widths, height_ratios=heights, hspace=.25, wspace=.1)
+    spec = gridspec.GridSpec(ncols=3, nrows=4, width_ratios=widths, height_ratios=heights, hspace=.1, wspace=.2)
     edges = get_reduced_edge_set(edge_set, edge_values)
     col_var = ['b', 'bt_n', 't_stb']
     for col in range(3):
@@ -128,7 +139,8 @@ def plot_main_figure(edge_set, times_set, edge_values={}):
 
             ax2 = fig.add_subplot(spec[row + 1, col])
             times = times_set[edge]
-            plot_ts(times, obs_w, ax=ax2)
+            plot_ts(times, obs_w, var=var, varname=varnames[var], specs=edge_specs, ax=ax2)
+    fig.savefig(path)
 
 def get_reduced_edge_set(edge_set, edge_values={}):
     """
@@ -203,15 +215,19 @@ if __name__ == '__main__':
     import pandas as pd
     import pickle
     import os
-    path = '/scratch/work/urenaj1/full/'
+    #path = '/scratch/work/urenaj1/full/'
+    path = '../full_run/'
 
     df_path = path + 'full_df_paper.txt'
     times_path = path + 'times_dic.txt'
 
     edges_outpath = path + 'mainplot_edges.p'
     times_outpath = path + 'mainplot_times.p'
+    plot_path = '../paper/figures/figure_1.pdf'
 
-    if not os.path.exists(times_outpath):
+    create_times = False
+
+    if create_times:
         df = pd.read_csv(df_path, sep=' ')
 
         edges = get_edge_set(df)
@@ -229,7 +245,9 @@ if __name__ == '__main__':
     edge_values['b'][2] = 3
 
     edge_values['bt_n'][0] = 15 #10, 4, 17
-    edge_values['bt_n'][2] = 19 #9 #15 #2 13
+    edge_values['bt_n'][2] = 9 #19 #15 #2 13
 
     edge_values['t_stb'][0] = 16 ###3 #1, 9
     edge_values['t_stb'][2] = 5 #1
+
+    plot_main_figure(edges, times, edge_values, plot_path)
