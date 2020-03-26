@@ -147,18 +147,22 @@ def get_edge_set(df):
     """
     Given the dataframe for the whole data, gets possible edges for the main plot according to weak/strong values
     """
+
     vrs = ['b', 't_stb', 'bt_n', 'out_call_div']
     data_vrs = ['0', '1', 'w', 'ovrl', 'n_ij', 'deg_0', 'deg_1']
     edges = {v: {} for v in vrs}
-    df_conds = (df.w > 35) & (df.w < 55) & (df.deg_0 < 80) & (df.deg_1 < 80) & (np.abs(df.deg_1 - df.deg_0) < 20)
+    df_conds = (df.w > 40) & (df.w < 65) & ((df.deg_0 < 80) | (df.deg_1 < 80)) & (np.abs(df.deg_1 - df.deg_0) < 25)
     df = df[data_vrs + vrs][df_conds].sort_values('ovrl')
 
     for var in vrs:
         asc = True if var in ['t_stb', 'bt_n'] else False
-        df2 = df[(df.ovrl < .03) & (df.ovrl > 0)].sort_values(var, ascending=asc)
-        edges[var][0] = parse_edges(df2.quantile(np.linspace(.075, .15, 20)))
-        df2 = df[(df.ovrl > .14) & (df.ovrl < .2)].sort_values(var, ascending=(not asc))
-        edges[var][2] = parse_edges(df2.quantile(np.linspace(.075, .15, 20)))
+        df2 = df[(df.ovrl < .03)].sort_values(var, ascending=asc)
+        idx = [int(x * df2.shape[0]) for x in np.linspace(.05, .15, 20)]
+        edges[var][0] = parse_edges(df2.iloc[idx])
+
+        df2 = df[(df.ovrl > .12)].sort_values(var, ascending=(not asc))
+        idx = [int(x * df2.shape[0]) for x in np.linspace(.05, .15, 20)]
+        edges[var][2] = parse_edges(df2.iloc[idx])
 
     return edges
 
