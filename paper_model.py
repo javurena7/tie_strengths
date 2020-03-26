@@ -1,32 +1,12 @@
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-#import analysis_tools as at
 import numpy as np; from numpy import inf
 import pandas as pd
-#import plots
-import matplotlib.pyplot as plt; plt.ion()
-import seaborn as sns
-from pandas import read_pickle
-from pickle import dump as dump_pickle
 from scipy.stats import rankdata
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, ExtraTreesRegressor, ExtraTreesClassifier
-from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, precision_score, recall_score
-#from sklearn.svm import SVR
-from itertools import chain, combinations, product
-
-
-from tie_strengths import plots
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.metrics import matthews_corrcoef
+import pickle
 from sklearn.svm import SVR
-from sklearn.feature_selection import f_regression, RFE
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
-
 
 """
 mi = {'age': 0.4268790367770328, 'b': 0.28306878329891266, 'bt_cv': 0.5549768306229391,
@@ -71,7 +51,6 @@ g.set_ylabel(r'$I$')
 g.figure.set_size_inches(3.3, 2.5)
 g.figure.tight_layout()
 g.figure.savefig('full_run/figs/mutual_information.pdf')
-"""
 
 iet = pd.read_csv('full_run/full_df_reclust.csv', sep=' ')
 y = iet.ovrl
@@ -79,31 +58,45 @@ del iet['0']
 del iet['1']
 del iet['ovrl']
 del iet['bt_tsig1']
-
+"""
 class PredictTieStrength(object):
-    def __init__(self, y, remove=[], save_prefix='../paper/'):
-        # TODO: get y from dataframes
+    def __init__(self, y_var, data_path='', remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/'):
         self.save_prefix = save_prefix
-        self.variables = variables
         self.models = [('LR', LogisticRegression()), ('RF', RandomForestClassifier()), ('ET', ExtraTreesClassifier())]
-        self.scores = self._init_scores()
+        if data_path:
+            self.read_tables(data_path, y_var, remove)
+            self.single_scores = self._init_scores()
+        else:
+            self.variables = []
+            self.x, self.y, self.scores = None, None, {}
         self.dual_scores = {}
-    
+
     def _init_scores(self):
-        return {kind: {var: [] for var in self.variables} for kind in self.kinds}
-    
+        return {kind[0]: {var: [] for var in self.variables} for kind in self.models}
+
     def _init_dual_scores(self, fvar):
         self.dual_scores[fvar] = self.init_scores()
 
-    def read_tables(self, path):
-        
+    def read_tables(self, path, y_var, remove):
+        df = pd.read_csv(path + 'full_df_paper.txt', sep=' ', index_col=['0', '1'])
+        df_wc = pd.read_csv(path + 'clustered_df_paper.txt', sep=' ', index_col=['0', '1'])
+        df = pd.concat([df, df_wc], axis=1)
+
+        for col in remove:
+            df.drop(col, axis=1, inplace=True)
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df.dropna(inplace=True)
+        self.y = df[y_var]
+        df.drop(y_var, axis=1, inplace=True)
+        self.variables = list(df.columns)
+        self.x = df
 
     def get_alphas(self):
-        self.alphas = [0] + [np.percentile(y[y > 0]), i) for i in range(5, 100, 5)]
+        self.alphas = [0] + [np.percentile(self.y[self.y > 0], i) for i in range(5, 100, 5)]
 
     def get_y_class(self, alpha):
         yb = self.y.copy()
-        idx = y > alpha
+        idx = self.y > alpha
         yb[idx] = 1
         yb[~idx] = 0
         self.yb = yb
@@ -111,22 +104,23 @@ class PredictTieStrength(object):
     def get_training_data(self):
         x_train, x_test, y_train, y_test = train_test_split(self.x, self.yb, test_size=0.33, stratify=self.yb)
         self.x_train = x_train
-        self.y_train = y_train 
+        self.y_train = y_train.values
         self.x_test = x_test
-        self.y_test = y_test
+        self.y_test = y_test.values
 
     def eval_model(self, model):
         model.fit(self.x_train, self.y_train)
         y_pred = model.predict(self.y_test)
         return matthews_corrcoef(self.y_test, y_pred)
-        
-    def eval_single_var(self, model, kind):
+
+    def eval_single_var(self, model):
         for var, data in self.x_train.iteritems():
-            x = data.reshape(-1, 1)
-            xt = self.x_test[var].reshape(-1, 1)
+            idx = data.notnull()
+            x = data.values.reshape(-1, 1)
+            xt = self.x_test[var].values.reshape(-1, 1)
             model[1].fit(x, self.y_train)
             y_pred = model[1].predict(xt)
-            self.single_scores[model[0]][var] += matthews_corrcoef(self.y_test, y_pred)
+            self.single_scores[model[0]][var].append(matthews_corrcoef(self.y_test, y_pred))
 
     def eval_dual_var(self, model, fvar):
         for var in self.x_train.columns:
@@ -138,23 +132,25 @@ class PredictTieStrength(object):
                 xt = self.x_test[[fvar, var]]
             model[1].fit(x, self.y_train)
             y_pred = model[1].predict(xt)
-            self.dual_scores[fvar][model[0]][var] += matthews_corrcoef(self.y_test, y_pred)
+            self.dual_scores[fvar][model[0]][var].append(matthews_corrcoef(self.y_test, y_pred))
 
     def run_alphas(self, fvars=[]):
         for fvar in fvars:
             self._init_dual_scores(fvar)
         for alpha in self.alphas:
-        print('--- alpha = {} --- '.format(alpha))
+            print('--- alpha = {} --- '.format(alpha))
+            self.get_y_class(alpha)
+            self.get_training_data()
             for model in self.models:
-                eval_single_var(model)
+                self.eval_single_var(model)
                 for fvar in fvars:
-                    eval_dual_var(fvar)
+                    self.eval_dual_var(fvar)
 
         self.save_scores()
-    
+
     def save_scores(self):
-        pickle.dump(self.single_scores, open(self.save_prefix + 'single_scores.p', 'wb')
-        pickle.dump(self.dual_scores, open(self.save_prefix + 'dual_scores.p', 'wb')
+        pickle.dump(self.single_scores, open(self.save_prefix + 'single_scores.p', 'wb'))
+        pickle.dump(self.dual_scores, open(self.save_prefix + 'dual_scores.p', 'wb'))
 
     def load_scoes(self):
         try:
@@ -166,11 +162,11 @@ class PredictTieStrength(object):
             self.dual_scores = pickle.load(open(self.save_prefix + 'dual_scores.p', 'rb'))
         except:
             raise('File not found')
-        
 
-   
-            
-      
+
+
+"""
+
 #to = pd.read_csv('full_run/reduced_')
 # FOR TEMPORAL OVERLAP
 to = pd.read_csv('full_run/temporal_overlap_reduced.txt', sep=' ')
@@ -230,7 +226,7 @@ g.savefig('full_run/figs/model_eval.pdf')
 # To reorder columns
 #reorder = ['w', 'r', 'mu', 'sig', 'b', 'mu_r', 'm','bt_n', 'bt_cv', 'bt_mu', 'r_frsh', 'age', 't_stb', 'bt_tmu', 'bt_tsig', 'bt_logt', 'out_call_div', 'e0_div'] + ['c' + str(i) for i in range(25)]
 
-
+"""
 def plot_corrs(iet, name='full_run/figs/correlations.pdf'):
     corrs = iet.corr('spearman').values
     n = corrs.shape[0]
@@ -264,6 +260,8 @@ def evaluate_model(model, x_train, y_train, x_test, y_test, scores, fi, kind):
         fi.append(model.coef_[0])
 """
 DO FULL MODEL EVALUATION
+"""
+
 """
 alphas = [0] + [np.percentile(y[y > 0], i) for i in range(5, 100, 5)]
 scores = []
@@ -310,10 +308,10 @@ for alpha in alphas:
 np.save('full_run/figs_reclust/full_model_scores_temp.npy', scores)
 np.save('full_run/figs_reclust/full_model_feature_importances_temp.npy', fis)
 cols = iet.columns
+"""
 
-"""
-DO FULL MODEL EVALUATION
-"""
+#DO FULL MODEL EVALUATION
+
 
 def evaluate_singlevar_model(model, x_train, y_train, x_test, y_test, scores, fi, kind):
     sc = []
@@ -337,7 +335,7 @@ def evaluate_singlevar_model(model, x_train, y_train, x_test, y_test, scores, fi
     scores.append(sc)
     fi.append(feat_imp)
 
-
+"""
 alphas = [0] + [np.percentile(y[y > 0], i) for i in range(5, 100, 5)]
 scores = []
 fi1 = []
@@ -374,9 +372,10 @@ np.save('full_run/figs_reclust/model_feature_importances_single_var.npy', fis)
 cols = iet.columns
 
 
+
 """
-PLOTS
-"""
+#PLOTS
+
 def plot_scores(scores, alphas, name='full_run/figs/scores_accuracy.pdf'):
     plots.latexify(4, 4, 2)
     fig, ax = plt.subplots()
@@ -570,7 +569,7 @@ def plot_single_vs_twovar(scores, alphas, size=10, model_idx=0, name='full_run/f
     fig.tight_layout()
     fig.savefig(name, transparent=True)
 
-
+"""
 f = list(f1) + list(f2)
 model = ['RF'] * (len(f1)) + ['ET'] * (len(f2))
 
@@ -686,7 +685,7 @@ x_test['w'] = rank_test(y_test.w)
 #write_results(w, comb, 0, proc_df.shape[0], sc, 'RF')
 # TODO: table with feature importance for mean overlap and temporal overlap
 
-
+"""
 
 
 
