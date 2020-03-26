@@ -174,7 +174,9 @@ def parse_edges(edge):
         n01 = row['n_ij']
         n0 = row['deg_0'] - n01 - 1
         n1 = row['deg_1'] - n01 - 1
-        edges[(int(row[0]), int(row[1]))] = {'n01': int(n01), 'n0': int(n0), 'n1': int(n1)}
+        hpr = {'n01': int(n01), 'n0': int(n0), 'n1': int(n1)}
+        hpr.update(row.to_dict())
+        edges[(int(row[0]), int(row[1]))] = hpr
     return edges
 
 
@@ -223,6 +225,11 @@ if __name__ == '__main__':
         times = pickle.load(open(times_outpath, 'rb'))
 
     edge_values = {'b':{0:0, 2:0}, 'bt_n':{0:0, 2:0}, 't_stb':{0:0, 2:0}}
-    edge_values['b'][0] = 2
-    edge_values['b'][2] = 5
+    edge_values['b'][0] = 7 #5
+    edge_values['b'][2] = 3
 
+    edge_values['bt_n'][0] = 15 #10, 4, 17
+    edge_values['bt_n'][2] = 19 #9 #15 #2 13
+
+    edge_values['t_stb'][0] = 16 ###3 #1, 9
+    edge_values['t_stb'][2] = 5 #1
