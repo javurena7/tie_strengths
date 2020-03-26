@@ -150,7 +150,8 @@ def get_edge_set(df):
     vrs = ['b', 't_stb', 'bt_n', 'out_call_div']
     data_vrs = ['0', '1', 'w', 'ovrl', 'n_ij', 'deg_0', 'deg_1']
     edges = {v: {} for v in vrs}
-    df = df[data_vrs + vrs][(df.w > 30) & (df.w < 40)].sort_values('ovrl')
+    df_conds = (df.w > 35) & (df.w < 65) & (df.deg_0 < 100) & (df.deg_1 < 100)
+    df = df[data_vrs + vrs][df_conds].sort_values('ovrl')
 
     for var in vrs:
         asc = True if var in ['t_stb', 'bt_n'] else False
@@ -215,4 +216,7 @@ if __name__ == '__main__':
         edges = pickle.load(open(edges_outpath, 'rb'))
         times = pickle.load(open(times_outpath, 'rb'))
 
+    edge_values = {'b':{0:0, 2:0}, 'bt_n':{0:0, 2:0}, 't_stb':{0:0, 2:0}}
+    edge_values['b'][0] = 2
+    edge_values['b'][2] = 5
 
