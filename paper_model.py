@@ -1,68 +1,24 @@
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
 import numpy as np; from numpy import inf
 import pandas as pd
 from scipy.stats import rankdata
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.metrics import matthews_corrcoef
 import pickle
-from sklearn.svm import SVR
+from os import listdir
 
-"""
-mi = {'age': 0.4268790367770328, 'b': 0.28306878329891266, 'bt_cv': 0.5549768306229391,
-        'bt_logt': 0.3271967513977159, 'bt_mu': 0.6215018163302465, 'bt_n': 1.0,
-        'bt_sig': 0.5508466731883317, 'bt_tmu': 0.46001085597270563, 'bt_tsig': 0.6829219052142487,
-        'bt_tsig1': 0.4298771459148786, 'm': 0.41066250720902525, 'mu': 0.4975802911648882,
-        'mu_r': 0.564532657963797, 'out_call_div': 0.9700390252980924, 'r': 0.6100724746172606,
-        'r_frsh': 0.44903018379974674, 'sig': 0.5208789888894217, 't_stb': 0.8009170136538077,
-        'w': 0.8622403167245188}
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.svm import LinearSVC
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.neural_network import MLPClassifier
 
 
-iet = pd.read_csv('full_run/model_data.csv', sep=' ')
-y = iet.ovrl
-del iet['ovrl']
-del iet['ovrl_t']
-del iet['jsd_mean']
-del iet['jsd_diff']
-del iet['bt_tsig1']
-
-f, _ = f_regression(iet, y)
-f /= np.max(f)
-f_score = {col: score for col, score in zip(iet.columns, f)}
-
-var = ['bt_n', 'out_call_div', 'w', 't_stb', 'bt_tsig', 'bt_mu']
-val = [mi[x] for x in var]
-
-corrs = np.abs(spearmanr(iet[var], y)[0][-1][:-1])
-
-df = pd.DataFrame()
-df['feature'] = var
-df['I'] = val
-
-plots.latexify(3, 2.5, 2)
-sns.set(rc={'figure.figsize':(3, 2.5)})
-g= sns.barplot(x="feature", y="I", data=df, color='royalblue')
-#.ax.legend(loc=0)
-itick_labels = [r'$TS$', r'$\bar{E}$', r'$N^E$', r'$\sigma_{t}$', r'$JSD$', r'$\bar{r}$', r'$w$']
-tick_labels = [r'$N^E$', r'$JSD$', r'$w$', r'$TS$', r'$\sigma_t$', r'$\bar{E}$']
-g.set_xticklabels(tick_labels, rotation=40)
-g.set_xlabel('(d)')
-g.set_ylabel(r'$I$')
-g.figure.set_size_inches(3.3, 2.5)
-g.figure.tight_layout()
-g.figure.savefig('full_run/figs/mutual_information.pdf')
-
-iet = pd.read_csv('full_run/full_df_reclust.csv', sep=' ')
-y = iet.ovrl
-del iet['0']
-del iet['1']
-del iet['ovrl']
-del iet['bt_tsig1']
-"""
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='', remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/'):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/'):
         self.save_prefix = save_prefix
-        self.models = [('LR', LogisticRegression()), ('RF', RandomForestClassifier()), ('ET', ExtraTreesClassifier())]
+        self._init_models(models)
         if data_path:
             self.read_tables(data_path, y_var, remove)
             self.single_scores = self._init_scores()
@@ -71,6 +27,24 @@ class PredictTieStrength(object):
             self.x, self.y, self.scores = None, None, {}
         self.dual_scores = {}
 
+        self.col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
+        self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
+
+    def _init_models(self, models):
+        available_models = {'SVC': 'LinearSVC',
+                'LR': 'LogisticRegression',
+                'RF': 'RadomForestClassifier',
+                'GP': 'GaussianProcessClassifier',
+                'ABC': 'AdaBoostClassifier',
+                'RBF': 'RBF',
+                'QDA': 'QuadraticDiscriminantAnalysis',
+                'MLP': 'MLPClassifier'}
+        self.models = []
+        for model in models:
+            model_str = available_models[model] + '()'
+            self.models.append((model, eval(model_str)))
+
+
     def _init_scores(self):
         return {kind[0]: {var: [] for var in self.variables} for kind in self.models}
 
@@ -78,12 +52,18 @@ class PredictTieStrength(object):
         self.dual_scores[fvar] = self.init_scores()
 
     def read_tables(self, path, y_var, remove):
-        df = pd.read_csv(path + 'full_df_paper.txt', sep=' ', index_col=['0', '1'])
-        df_wc = pd.read_csv(path + 'clustered_df_paper.txt', sep=' ', index_col=['0', '1'])
-        df = pd.concat([df, df_wc], axis=1)
+        if 'delta_t' in path:
+            deltas = pickle.load(open(path + 'deltas.p', 'rb'))
+            colnames = ['ovrl', '0', '1'] + sorted(deltas, key=lambda x: int(x))
+            df = pd.read_csv(path + 'new_full_bt_n.txt', sep=' ', names=colnames, index_col=['0', '1'], skiprows=1)
+        else:
 
-        for col in remove:
-            df.drop(col, axis=1, inplace=True)
+            df = pd.read_csv(path + 'full_df_paper.txt', sep=' ', index_col=['0', '1'])
+            df_wc = pd.read_csv(path + 'clustered_df_paper.txt', sep=' ', index_col=['0', '1'])
+            df = pd.concat([df, df_wc], axis=1)
+            for col in remove:
+                df.drop(col, axis=1, inplace=True)
+
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df.dropna(inplace=True)
         self.y = df[y_var]
@@ -122,6 +102,8 @@ class PredictTieStrength(object):
             y_pred = model[1].predict(xt)
             self.single_scores[model[0]][var].append(matthews_corrcoef(self.y_test, y_pred))
 
+        self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
+
     def eval_dual_var(self, model, fvar):
         for var in self.x_train.columns:
             if var == fvar:
@@ -134,7 +116,9 @@ class PredictTieStrength(object):
             y_pred = model[1].predict(xt)
             self.dual_scores[fvar][model[0]][var].append(matthews_corrcoef(self.y_test, y_pred))
 
-    def run_alphas(self, fvars=[]):
+        self.save_scores(self.dual_scores[fvar][model[0]], 'dual_scores.{}.{}.p'.format(fvar, model[0]))
+
+    def run_alphas(self, fvars=[], single_var=True):
         for fvar in fvars:
             self._init_dual_scores(fvar)
         for alpha in self.alphas:
@@ -142,28 +126,58 @@ class PredictTieStrength(object):
             self.get_y_class(alpha)
             self.get_training_data()
             for model in self.models:
-                self.eval_single_var(model)
+                if single_var == True:
+                    self.eval_single_var(model)
                 for fvar in fvars:
                     self.eval_dual_var(fvar)
 
-        self.save_scores()
 
-    def save_scores(self):
-        pickle.dump(self.single_scores, open(self.save_prefix + 'single_scores.p', 'wb'))
-        pickle.dump(self.dual_scores, open(self.save_prefix + 'dual_scores.p', 'wb'))
+    def save_scores(self, obj, name):
+        pickle.dump(obj, open(self.save_prefix + name, 'wb'))
 
-    def load_scoes(self):
-        try:
-            self.single_scores = pickle.load(open(self.save_prefix + 'single_scores.p', 'rb'))
-        except:
-            raise('File not found')
+    def load_scores(self):
+        single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f]
+        dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f]
 
-        try:
-            self.dual_scores = pickle.load(open(self.save_prefix + 'dual_scores.p', 'rb'))
-        except:
-            raise('File not found')
+        for sf in single_files:
+            model = sf.split('.')[1]
+            self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
+        for df in dual_files:
+            fvar, model = sf.split('.')[1:2]
+            if self.dual_scores.get(fvar, 0) == 0:
+                self.dual_scores[fvar] = {}
+            self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + 'dual_scores.p', 'rb'))
+
+    def plot_singlevar_mcc(self):
+        htmap_data = [0] * len(alphas)
+        for i in range(len(alphas)):
+            htmap_data[i] = np.max(scores[i], 0)[0:88:2]
+
+        htmap_data = np.array(htmap_data)
+        args = np.argsort(np.mean(htmap_data, 0))
+
+        ticklabels = [col_labels[cols[i]] for i in args]
+        htmap_sorted = htmap_data.T[args].T
+
+        g = sns.heatmap(htmap_sorted, cmap='GnBu', center=0, cbar_kws={'label':r'$MCC$'})
+        xticks = [i + .5 for i in range(len(args))]
+        g.axes.set_xticks(xticks)
+        g.axes.set_xticklabels(ticklabels, rotation=90)
+        alphas = [round(a, 3) for a in alphas]
+
+        g.axes.set_yticks(range(0, 20, 4))
+        g.axes.set_yticklabels(alphas[0:20:4], rotation=0)
+        g.axes.set_ylabel(r'$O_{\alpha}$')
+        g.axes.set_title(title, loc='left')
+        g.get_figure().tight_layout()
+        g.get_figure().savefig(name)
+        return args
 
 
+if __name__ == '__main__':
+    PTS = pm.PredictTieStrength(y_var='ovrl', data_path='../paper_run/sample/', save_prefix='../paper_run/sample/')
+    PTS.get_alphas()
+    PTS.run_alphas()
 
 """
 
@@ -211,8 +225,6 @@ g = sns.catplot(x="var", y="I", hue="model", data=df, kind="bar", legend=False)
 g.ax.legend(loc=0)
 
 
-col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
-col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(25)})
 
 #args = np.argsort(np.mean(np.abs(fis[2]), 0))
 ticklabels = [col_labels[cols[i]] for i in args]
@@ -226,7 +238,6 @@ g.savefig('full_run/figs/model_eval.pdf')
 # To reorder columns
 #reorder = ['w', 'r', 'mu', 'sig', 'b', 'mu_r', 'm','bt_n', 'bt_cv', 'bt_mu', 'r_frsh', 'age', 't_stb', 'bt_tmu', 'bt_tsig', 'bt_logt', 'out_call_div', 'e0_div'] + ['c' + str(i) for i in range(25)]
 
-"""
 def plot_corrs(iet, name='full_run/figs/correlations.pdf'):
     corrs = iet.corr('spearman').values
     n = corrs.shape[0]
@@ -244,9 +255,7 @@ def plot_corrs(iet, name='full_run/figs/correlations.pdf'):
     return g
 
 
-"""
 Start doing the Model evaluantion for three models
-"""
 
 def evaluate_model(model, x_train, y_train, x_test, y_test, scores, fi, kind):
     model.fit(x_train, y_train)
@@ -258,11 +267,6 @@ def evaluate_model(model, x_train, y_train, x_test, y_test, scores, fi, kind):
         fi.append(model.feature_importances_)
     else:
         fi.append(model.coef_[0])
-"""
-DO FULL MODEL EVALUATION
-"""
-
-"""
 alphas = [0] + [np.percentile(y[y > 0], i) for i in range(5, 100, 5)]
 scores = []
 fi1 = []
@@ -308,7 +312,6 @@ for alpha in alphas:
 np.save('full_run/figs_reclust/full_model_scores_temp.npy', scores)
 np.save('full_run/figs_reclust/full_model_feature_importances_temp.npy', fis)
 cols = iet.columns
-"""
 
 #DO FULL MODEL EVALUATION
 
@@ -335,7 +338,6 @@ def evaluate_singlevar_model(model, x_train, y_train, x_test, y_test, scores, fi
     scores.append(sc)
     fi.append(feat_imp)
 
-"""
 alphas = [0] + [np.percentile(y[y > 0], i) for i in range(5, 100, 5)]
 scores = []
 fi1 = []
@@ -373,7 +375,6 @@ cols = iet.columns
 
 
 
-"""
 #PLOTS
 
 def plot_scores(scores, alphas, name='full_run/figs/scores_accuracy.pdf'):
@@ -442,9 +443,7 @@ def plot_f1_score(scores, alphas, name='full_run/figs/scores_f1.pdf'):
     return fig, ax
 
 def plot_feature_importances(fis, cols, alphas, path='full_run/figs_reclust/'):
-    """
-    Function to plot feature importantces, where fis is a list of arrays containing feature importances of RandomForest, ExtraTrees and LogReg for each value of alphas.
-    """
+    #Function to plot feature importantces, where fis is a list of arrays containing feature importances of RandomForest, ExtraTrees and LogReg for each value of alphas.
     names = [path + 'feature_imp_' + i for i in ['rf.pdf', 'et.pdf', 'lr.pdf']]
     plots.latexify(6, 2, 1)
     col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
@@ -471,33 +470,6 @@ def plot_feature_importances(fis, cols, alphas, path='full_run/figs_reclust/'):
         g.get_figure().savefig(names[k])
 
 
-def plot_singlevar_mcc(scores, alphas, name='full_run/figs_reclust/singlevar_prec.pdf', title=''):
-    plots.latexify(6, 2, 1)
-    htmap_data = [0] * len(alphas)
-    for i in range(len(alphas)):
-        htmap_data[i] = np.max(scores[i], 0)[0:88:2]
-
-    htmap_data = np.array(htmap_data)
-    col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
-    col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(25)})
-    args = np.argsort(np.mean(htmap_data, 0))
-
-    ticklabels = [col_labels[cols[i]] for i in args]
-    htmap_sorted = htmap_data.T[args].T
-
-    g = sns.heatmap(htmap_sorted, cmap='GnBu', center=0, cbar_kws={'label':r'$MCC$'})
-    xticks = [i + .5 for i in range(len(args))]
-    g.axes.set_xticks(xticks)
-    g.axes.set_xticklabels(ticklabels, rotation=90)
-    alphas = [round(a, 3) for a in alphas]
-
-    g.axes.set_yticks(range(0, 20, 4))
-    g.axes.set_yticklabels(alphas[0:20:4], rotation=0)
-    g.axes.set_ylabel(r'$O_{\alpha}$')
-    g.axes.set_title(title, loc='left')
-    g.get_figure().tight_layout()
-    g.get_figure().savefig(name)
-    return args
 
 
 def plot_twovar_mcc(scores, fis, alphas, size=10, model_idx=0, name='full_run/figs_reclust/twovar_mcc.pdf', title=''):
@@ -569,7 +541,6 @@ def plot_single_vs_twovar(scores, alphas, size=10, model_idx=0, name='full_run/f
     fig.tight_layout()
     fig.savefig(name, transparent=True)
 
-"""
 f = list(f1) + list(f2)
 model = ['RF'] * (len(f1)) + ['ET'] * (len(f2))
 
@@ -686,8 +657,4 @@ x_test['w'] = rank_test(y_test.w)
 # TODO: table with feature importance for mean overlap and temporal overlap
 
 """
-
-
-
-
 
