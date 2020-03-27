@@ -1,4 +1,4 @@
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np; from numpy import inf
 import pandas as pd
 from scipy.stats import rankdata
@@ -17,9 +17,10 @@ from sklearn.neural_network import MLPClassifier
 
 
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/'):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3):
         self.save_prefix = save_prefix
         self._init_models(models)
+        self.k = k
         if data_path:
             self.read_tables(data_path, y_var, remove)
             self.single_scores = self._init_scores()
@@ -94,14 +95,21 @@ class PredictTieStrength(object):
         y_pred = model.predict(self.y_test)
         return matthews_corrcoef(self.y_test, y_pred)
 
-    def eval_single_var(self, model):
-        for var, data in self.x_train.iteritems():
-            x = data.values.reshape(-1, 1)
-            xt = self.x_test[var].values.reshape(-1, 1)
-            model[1].fit(x, self.y_train)
-            y_pred = model[1].predict(xt)
-            self.single_scores[model[0]][var].append(matthews_corrcoef(self.y_test, y_pred))
+    def kfold(self):
+        skf = StratifiedKFold(n_splits=self.k, random_state=0)
+        return skf.split(self.x, self.yb)
 
+
+    def eval_single_var(self, model):
+        for var in self.x.columns:
+            scores = []
+            for train_idx, test_idx in self.kfold():
+                x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
+                xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                model[1].fit(x, self.yb[train_idx])
+                y_pred = model[1].predict(xt)
+                scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
+            self.single_scores[model[0]][var].append(np.mean(scores))
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
 
     def eval_dual_var(self, model, fvar):
@@ -124,7 +132,8 @@ class PredictTieStrength(object):
         for alpha in self.alphas:
             print('--- alpha = {} --- '.format(alpha))
             self.get_y_class(alpha)
-            self.get_training_data()
+            #self.get_training_data()
+
             for model in self.models:
                 if single_var == True:
                     self.eval_single_var(model)
@@ -138,15 +147,31 @@ class PredictTieStrength(object):
     def load_scores(self):
         single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f]
         dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f]
-
+        self.single_scores = {}
         for sf in single_files:
             model = sf.split('.')[1]
             self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
+        self.dual_scores = {}
         for df in dual_files:
             fvar, model = sf.split('.')[1:2]
             if self.dual_scores.get(fvar, 0) == 0:
                 self.dual_scores[fvar] = {}
             self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + 'dual_scores.p', 'rb'))
+
+
+    def merge_scores(self):
+        mat = []
+        for scores in self.single_scores.values():
+            colnames = scores.keys()
+            mat.append(pd.DataFrame(scores).as_matrix())
+
+        mat = sum(mat) / len(self.single_scores)
+        self.average_score = pd.DataFrame(mat, columns=colnames)
+
+
+
+
+
 
     def plot_singlevar_mcc(self):
         htmap_data = [0] * len(alphas)
