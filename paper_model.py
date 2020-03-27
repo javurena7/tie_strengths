@@ -17,7 +17,7 @@ from sklearn.neural_network import MLPClassifier
 
 
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5):
         self.save_prefix = save_prefix
         self._init_models(models)
         self.k = k
@@ -28,6 +28,7 @@ class PredictTieStrength(object):
             self.variables = []
             self.x, self.y, self.scores = None, None, {}
         self.dual_scores = {}
+        self.alpha_step = alpha_step
 
         self.col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
@@ -74,7 +75,7 @@ class PredictTieStrength(object):
         self.x = df
 
     def get_alphas(self):
-        self.alphas = [0] + [np.percentile(self.y[self.y > 0], i) for i in range(5, 100, 5)]
+        self.alphas = [0] + [np.percentile(self.y[self.y > 0], i) for i in range(5, 100, self.alpha_step)]
 
     def get_y_class(self, alpha):
         yb = self.y.copy()
@@ -82,13 +83,6 @@ class PredictTieStrength(object):
         yb[idx] = 1
         yb[~idx] = 0
         self.yb = yb
-
-    def get_training_data(self):
-        x_train, x_test, y_train, y_test = train_test_split(self.x, self.yb, test_size=0.33, stratify=self.yb)
-        self.x_train = x_train
-        self.y_train = y_train.values
-        self.x_test = x_test
-        self.y_test = y_test.values
 
     def eval_model(self, model):
         model.fit(self.x_train, self.y_train)
@@ -135,7 +129,6 @@ class PredictTieStrength(object):
         for alpha in self.alphas:
             print('--- alpha = {} --- '.format(alpha))
             self.get_y_class(alpha)
-            #self.get_training_data()
 
             for model in self.models:
                 if single_var == True:
