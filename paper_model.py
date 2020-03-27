@@ -114,15 +114,18 @@ class PredictTieStrength(object):
 
     def eval_dual_var(self, model, fvar):
         for var in self.x_train.columns:
-            if var == fvar:
-                x = self.x_train[var].reshape(-1, 1)
-                xt = self.x_test[var].reshape(-1, 1)
-            else:
-                x = self.x_train[[fvar, var]]
-                xt = self.x_test[[fvar, var]]
-            model[1].fit(x, self.y_train)
-            y_pred = model[1].predict(xt)
-            self.dual_scores[fvar][model[0]][var].append(matthews_corrcoef(self.y_test, y_pred))
+            scores = []
+            for train_idx, test_idx in self.kfold():
+                if var == fvar:
+                    x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
+                    xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                else:
+                    x = self.x.iloc[train_idx][[fvar, var]]
+                    xt = self.x.iloc[test_idx][[fvar, var]]
+                model[1].fit(x, self.yb[train_idx])
+                y_pred = model[1].predict(xt)
+                scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
+            self.dual_scores[fvar][model[0]][var].append(scores)
 
         self.save_scores(self.dual_scores[fvar][model[0]], 'dual_scores.{}.{}.p'.format(fvar, model[0]))
 
