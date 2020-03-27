@@ -5,6 +5,7 @@ from scipy.stats import rankdata
 from sklearn.metrics import matthews_corrcoef
 import pickle
 from os import listdir
+from collections import OrderedDict
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
@@ -33,7 +34,7 @@ class PredictTieStrength(object):
     def _init_models(self, models):
         available_models = {'SVC': 'LinearSVC',
                 'LR': 'LogisticRegression',
-                'RF': 'RadomForestClassifier',
+                'RF': 'RandomForestClassifier',
                 'GP': 'GaussianProcessClassifier',
                 'ABC': 'AdaBoostClassifier',
                 'RBF': 'RBF',
@@ -46,7 +47,7 @@ class PredictTieStrength(object):
 
 
     def _init_scores(self):
-        return {kind[0]: {var: [] for var in self.variables} for kind in self.models}
+        return {kind[0]: OrderedDict((var, []) for var in self.variables) for kind in self.models}
 
     def _init_dual_scores(self, fvar):
         self.dual_scores[fvar] = self.init_scores()
@@ -95,7 +96,6 @@ class PredictTieStrength(object):
 
     def eval_single_var(self, model):
         for var, data in self.x_train.iteritems():
-            idx = data.notnull()
             x = data.values.reshape(-1, 1)
             xt = self.x_test[var].values.reshape(-1, 1)
             model[1].fit(x, self.y_train)
