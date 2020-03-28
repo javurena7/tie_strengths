@@ -17,7 +17,7 @@ from sklearn.neural_network import MLPClassifier
 
 
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False):
         self.save_prefix = save_prefix
         self._init_models(models)
         self.k = k
@@ -29,6 +29,7 @@ class PredictTieStrength(object):
             self.x, self.y, self.scores = None, None, {}
         self.dual_scores = {}
         self.alpha_step = alpha_step
+        self.ranked = ranked
 
         self.col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
@@ -52,7 +53,7 @@ class PredictTieStrength(object):
         return {kind[0]: OrderedDict((var, []) for var in self.variables) for kind in self.models}
 
     def _init_dual_scores(self, fvar):
-        self.dual_scores[fvar] = self.init_scores()
+        self.dual_scores[fvar] = self._init_scores()
 
     def read_tables(self, path, y_var, remove):
         if 'delta_t' in path:
@@ -100,6 +101,10 @@ class PredictTieStrength(object):
             for train_idx, test_idx in self.kfold():
                 x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
                 xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                if self.ranked:
+                    rank_x = lambda x: rankdata(x) / x.shape[0]
+                    x = rank_x(x).reshape(-1, 1)
+                    xt = rank_x(xt).reshape(-1, 1)
                 model[1].fit(x, self.yb[train_idx])
                 y_pred = model[1].predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
@@ -107,7 +112,7 @@ class PredictTieStrength(object):
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
 
     def eval_dual_var(self, model, fvar):
-        for var in self.x_train.columns:
+        for var in self.x.columns:
             scores = []
             for train_idx, test_idx in self.kfold():
                 if var == fvar:
@@ -119,7 +124,7 @@ class PredictTieStrength(object):
                 model[1].fit(x, self.yb[train_idx])
                 y_pred = model[1].predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
-            self.dual_scores[fvar][model[0]][var].append(scores)
+            self.dual_scores[fvar][model[0]][var].append(np.mean(scores))
 
         self.save_scores(self.dual_scores[fvar][model[0]], 'dual_scores.{}.{}.p'.format(fvar, model[0]))
 
@@ -134,7 +139,7 @@ class PredictTieStrength(object):
                 if single_var == True:
                     self.eval_single_var(model)
                 for fvar in fvars:
-                    self.eval_dual_var(fvar)
+                    self.eval_dual_var(model, fvar)
 
 
     def save_scores(self, obj, name):
@@ -163,9 +168,6 @@ class PredictTieStrength(object):
 
         mat = sum(mat) / len(self.single_scores)
         self.average_score = pd.DataFrame(mat, columns=colnames)
-
-
-
 
 
 
@@ -219,7 +221,7 @@ rank_test = lambda x: rankdata(x)/n
 x_test = x_test.apply(rank_test)
 #y_test = rank_test(y_test)
 
-RF = RandomForestRegressor(35)
+RF = RandomForestRegressor(35a
 RF.fit(x_train, y_train)
 sc1 = RF.score(x_test, y_test)
 #sc1b = RF.score(x_test, y_test.ov_mean)
