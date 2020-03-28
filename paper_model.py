@@ -206,16 +206,22 @@ if __name__ == '__main__':
     parser.add_argument("--models", default=["QDA"], nargs="+") #nargs=+, take 1 or more arguments
     parser.add_argument("--save_path", default="./")
     parser.add_argument("--fvar", default=[], nargs="*") #nargs=*, take 0 or more arguments
-    remove_default = ['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1']
+    remove_default = ['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1']
+
+    if y_var == 'ovrl':
+        remove_default.append('ov_mean')
+    elif y_var == 'ov_mean':
+        remove_default.append('ovrl')
     parser.add_argument("--remove", default=remove_default, nargs="*")
     pargs = parser.parse_args()
 
-
+    import pdb; pdb.set_trace()
     r = "r" if pargs.ranked else "nr"
     save_path = os.path.join(pargs.save_path, "{}_{}/".format(pargs.y_var, r))
     if not os.path.exists(save_path):
         os.mkdir(save_path)
-    PTS = pm.PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=10, ranked=pargs.ranked)
+
+    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=pargs.ranked)
     PTS.get_alphas()
     PTS.run_alphas(fvar=parser.f_var)
 
