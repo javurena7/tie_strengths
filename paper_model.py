@@ -38,9 +38,8 @@ class PredictTieStrength(object):
         available_models = {'SVC': 'LinearSVC',
                 'LR': 'LogisticRegression',
                 'RF': 'RandomForestClassifier',
-                'GP': 'GaussianProcessClassifier',
+                #'GP': 'GaussianProcessClassifier',
                 'ABC': 'AdaBoostClassifier',
-                'RBF': 'RBF',
                 'QDA': 'QuadraticDiscriminantAnalysis',
                 'MLP': 'MLPClassifier'}
         self.models = []
@@ -198,9 +197,28 @@ class PredictTieStrength(object):
 
 
 if __name__ == '__main__':
-    PTS = pm.PredictTieStrength(y_var='ovrl', data_path='../paper_run/sample/', save_prefix='../paper_run/sample/')
+    import argparse
+    import os
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_path", default="/scratch/work/urenaj1/full/")
+    parser.add_argument("--y_var", default="ovrl")
+    parser.add_argument("--ranked", default=False)
+    parser.add_argument("--models", default=["QDA"], nargs="+") #nargs=+, take 1 or more arguments
+    parser.add_argument("--save_path", default="./")
+    parser.add_argument("--fvar", default=[], nargs="*") #nargs=*, take 0 or more arguments
+    remove_default = ['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1']
+    parser.add_argument("--remove", default=remove_default, nargs="*")
+    pargs = parser.parse_args()
+
+
+    r = "r" if pargs.ranked else "nr"
+    save_path = os.path.join(pargs.save_path, "{}_{}/".format(pargs.y_var, r))
+    import pdb; pdb.set_trace()
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+    PTS = pm.PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=10, ranked=pargs.ranked)
     PTS.get_alphas()
-    PTS.run_alphas()
+    PTS.run_alphas(fvar=parser.f_var)
 
 """
 
