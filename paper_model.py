@@ -216,12 +216,12 @@ if __name__ == '__main__':
     elif pargs.y_var == 'ov_mean':
         remove.append('ovrl')
 
-    r = "r" if pargs.ranked else "nr"
+    r = "r" if eval(pargs.ranked) else "nr"
     save_path = os.path.join(pargs.save_path, "{}-{}/".format(pargs.y_var, r))
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
-    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=pargs.ranked, remove=remove)
+    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=eval(pargs.ranked), remove=remove)
     PTS.get_alphas()
     PTS.run_alphas(fvars=pargs.fvars)
 
