@@ -152,10 +152,10 @@ class PredictTieStrength(object):
             self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
         self.dual_scores = {}
         for df in dual_files:
-            fvar, model = sf.split('.')[1:2]
+            fvar, model = sf.split('.')[1:3]
             if self.dual_scores.get(fvar, 0) == 0:
                 self.dual_scores[fvar] = {}
-            self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + 'dual_scores.p', 'rb'))
+            self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
 
 
     def merge_scores(self):
