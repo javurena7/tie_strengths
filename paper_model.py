@@ -213,7 +213,6 @@ if __name__ == '__main__':
 
     r = "r" if pargs.ranked else "nr"
     save_path = os.path.join(pargs.save_path, "{}_{}/".format(pargs.y_var, r))
-    import pdb; pdb.set_trace()
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     PTS = pm.PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=10, ranked=pargs.ranked)
