@@ -6,7 +6,10 @@ from sklearn.metrics import matthews_corrcoef
 import pickle
 from os import listdir
 from collections import OrderedDict
+import matplotlib.pyplot as plt; plt.ion()
+import seaborn as sns
 
+from latexify import *
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.svm import LinearSVC
@@ -31,7 +34,30 @@ class PredictTieStrength(object):
         self.alpha_step = alpha_step
         self.ranked = ranked
 
-        self.col_labels = {'mu': r'$\bar{\tau}$', 'sig': r'$\bar{\sigma_{\tau}}$', 'b': r'$B$', 'mu_r': r'$\bar{\tau}_R$', 'r_frsh': r'$\hat{f}$', 'age': r'$age$', 't_stb': r'$TS$', 'm': r'$M$', 'bt_mu': r'$\bar{E}$', 'bt_sig': r'$\sigma^{E}$', 'bt_cv': r'$CV^E$', 'bt_n': r'$N^E$', 'bt_tmu': r'$\bar{t}$', 'bt_tsig': r'$\sigma_{t}$', 'bt_logt': r'$\log(T)$', 'out_call_div': r'$JSD$', 'r': r'$r$', 'w': r'$w$', 'e0_div': r'$JSD_{diff}$', r'ovrl': 'HT'}
+        self.col_labels = {'mu': r'$\bar{\tau}$',
+                'sig': r'$\bar{\sigma_{\tau}}$',
+                'b': r'$B$',
+                'mu_r': r'$\bar{\tau}_R$',
+                'r_frsh': r'$\hat{f}$',
+                'age': r'$age$',
+                't_stb': r'$TS$',
+                'm': r'$M$',
+                'bt_mu': r'$\bar{E}$',
+                'bt_sig': r'$\sigma^{E}$',
+                'bt_cv': r'$CV^E$',
+                'bt_n': r'$N^E$',
+                'bt_tmu': r'$\bar{t}$',
+                'bt_tsig': r'$\sigma_{t}$',
+                'bt_logt': r'$\log(T)$',
+                'out_call_div': r'$JSD$',
+                'r': r'$r$',
+                'w': r'$w$',
+                'e0_div': r'$JSD_{diff}$',
+                'ovrl': r'$O$',
+                'avg_len': r'$avglen$',
+                'len': r'$l$',
+                'w_hrs': r'$w_h$',
+                'w_day': r'$w_d$'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
 
     def _init_models(self, models):
@@ -169,32 +195,79 @@ class PredictTieStrength(object):
         mat = sum(mat) / len(self.single_scores)
         self.average_score = pd.DataFrame(mat, columns=colnames)
 
+        self.average_dual_score = {}
+        for var, var_models in self.dual_scores.items():
+            mat = []
+            for scores in var_models.values():
+                colnames = scores.keys()
+                mat.append(pd.DataFrame(scores).as_matrix())
+            mat = sum(mat) / len(var_models)
+            self.average_dual_score[var] = pd.DataFrame(mat, columns=colnames)
 
 
-    def plot_singlevar_mcc(self):
-        htmap_data = [0] * len(alphas)
-        for i in range(len(alphas)):
-            htmap_data[i] = np.max(scores[i], 0)[0:88:2]
+    def plot_singlevar_mcc(self, case='AVG', sort_order='average', title=''):
+        latexify(6, 2.2, 2, usetex=True)
 
-        htmap_data = np.array(htmap_data)
-        args = np.argsort(np.mean(htmap_data, 0))
+        if case == 'AVG':
+            df = self.average_score
+            df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        elif sort_order == 'average':
+            df_a = self.average_score
+            df = pd.DataFrame(self.single_scores[case])
+            df = df.reindex_axis(dfa.mean().sort_values().index, axis=1)
+        else:
+            df = pd.DataFrame(self.single_scores[case])
+            df = df.reindex_axis(df.mean().sort_values().index, axis=1)
 
-        ticklabels = [col_labels[cols[i]] for i in args]
-        htmap_sorted = htmap_data.T[args].T
 
-        g = sns.heatmap(htmap_sorted, cmap='GnBu', center=0, cbar_kws={'label':r'$MCC$'})
-        xticks = [i + .5 for i in range(len(args))]
+        ticklabels = [self.col_labels[col] for col in df]
+
+        g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'})
+        xticks = [i + .5 for i in range(len(df.columns))]
         g.axes.set_xticks(xticks)
-        g.axes.set_xticklabels(ticklabels, rotation=90)
-        alphas = [round(a, 3) for a in alphas]
+        g.axes.set_xticklabels(ticklabels, rotation=67)
+        alphas = [round(a, 3) for a in self.alphas]
 
-        g.axes.set_yticks(range(0, 20, 4))
-        g.axes.set_yticklabels(alphas[0:20:4], rotation=0)
-        g.axes.set_ylabel(r'$O_{\alpha}$')
+        g.axes.set_yticks(range(0, 20, 3))
+        g.axes.set_yticklabels(alphas[0:20:3], rotation=0)
+        if self.y.name == 'ovrl':
+            g.axes.set_ylabel(r'$O_{\alpha}$')
+        elif self.y.name == 'ov_mean':
+            g.axes.set_ylabel(r'$\hat{O}_{\alpha}$')
         g.axes.set_title(title, loc='left')
         g.get_figure().tight_layout()
+
+        name = self.save_prefix + 'singlevar.{}.pdf'.format(case)
         g.get_figure().savefig(name)
-        return args
+
+    def plot_dual_var(self, title=''):
+        latexify(6, 2, 1, uselatex=True)
+        index = self.average_score.mean().sort_vaues().index
+
+        fig, ax = plt.subplots()
+        name = r'$X + {}$'
+        for var, score in self.average_dual_score.items():
+            score.reindex_axis(index, axis=1, inplace=True)
+            values = np.mean(score, 0)
+            label = name.format(self.col_lables[var])
+            ax.scatter(values, label=label, alpha=.5)
+        else:
+            df = self.average_score.copy()
+            df.reindex_axis(index, axis=1, inplace=True)
+            values = np.mean(df_a)
+            label = r'$X$'
+            ax.scatter(values, label=label, alpha=.5)
+
+
+        xticks = [i + .5 for i in range(len(df.columns))]
+        ax.set_xticks(xticks)
+        ticklabels = [col_labels[cols[i]] for i in df.columns]
+        ax.set_xticklabels(ticklabels, rotation=90)
+        ax.set_ylabel(r'$MCC$')
+        ax.legend(loc=0)
+        ax.set_title(title, loc='left')
+        name = self.save_prefix + 'doublevar.pdf'
+        fig.savefig(name)
 
 
 if __name__ == '__main__':
