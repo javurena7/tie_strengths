@@ -83,8 +83,12 @@ class PredictTieStrength(object):
     def read_tables(self, path, y_var, remove):
         if 'delta_t' in path:
             deltas = pickle.load(open(path + 'deltas.p', 'rb'))
-            colnames = ['ovrl', '0', '1'] + sorted(deltas, key=lambda x: int(x))
+            colnames = ['ov_mean', 'ovrl', '0', '1'] + sorted(deltas, key=lambda x: int(x))
             df = pd.read_csv(path + 'new_full_bt_n.txt', sep=' ', names=colnames, index_col=['0', '1'], skiprows=1)
+            if y_var == 'ovrl':
+                df.drop('ov_mean', axis=1, inplace=True)
+            elif y_var == 'ov_mean':
+                df.drop('ovrl', axis=1, inplace=True)
         else:
 
             df = pd.read_csv(path + 'full_df_paper.txt', sep=' ', index_col=['0', '1'])
