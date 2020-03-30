@@ -20,7 +20,7 @@ from sklearn.neural_network import MLPClassifier
 
 
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'ov_mean', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False):
         self.save_prefix = save_prefix
         self._init_models(models)
         self.k = k
@@ -54,7 +54,7 @@ class PredictTieStrength(object):
                 'w': r'$w$',
                 'e0_div': r'$JSD_{diff}$',
                 'ovrl': r'$O$',
-                'avg_len': r'$avglen$',
+                'avg_len': r'$\hat{l}$',
                 'len': r'$l$',
                 'w_hrs': r'$w_h$',
                 'w_day': r'$w_d$'}
@@ -64,10 +64,8 @@ class PredictTieStrength(object):
         available_models = {'SVC': 'LinearSVC',
                 'LR': 'LogisticRegression',
                 'RF': 'RandomForestClassifier',
-                #'GP': 'GaussianProcessClassifier',
                 'ABC': 'AdaBoostClassifier',
-                'QDA': 'QuadraticDiscriminantAnalysis',
-                'MLP': 'MLPClassifier'}
+                'QDA': 'QuadraticDiscriminantAnalysis'}
         self.models = []
         for model in models:
             model_str = available_models[model] + '()'
@@ -85,10 +83,6 @@ class PredictTieStrength(object):
             deltas = pickle.load(open(path + 'deltas.p', 'rb'))
             colnames = ['ov_mean', 'ovrl', '0', '1'] + sorted(deltas, key=lambda x: int(x))
             df = pd.read_csv(path + 'new_full_bt_n.txt', sep=' ', names=colnames, index_col=['0', '1'], skiprows=1)
-            if y_var == 'ovrl':
-                df.drop('ov_mean', axis=1, inplace=True)
-            elif y_var == 'ov_mean':
-                df.drop('ovrl', axis=1, inplace=True)
         else:
 
             df = pd.read_csv(path + 'full_df_paper.txt', sep=' ', index_col=['0', '1'])
@@ -96,6 +90,10 @@ class PredictTieStrength(object):
             df = pd.concat([df, df_wc], axis=1)
             for col in remove:
                 df.drop(col, axis=1, inplace=True)
+        if y_var == 'ovrl':
+            df.drop('ov_mean', axis=1, inplace=True)
+        elif y_var == 'ov_mean':
+            df.drop('ovrl', axis=1, inplace=True)
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df.dropna(inplace=True)
         self.y = df[y_var]
@@ -175,9 +173,9 @@ class PredictTieStrength(object):
             pickle.dump(obj, opn)
 
 
-    def load_scores(self):
-        single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f]
-        dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f]
+    def load_scores(self, single=True, dual=False):
+        single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f] if single else []
+        dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f] if dual else []
         self.single_scores = {}
         for sf in single_files:
             model = sf.split('.')[1]
@@ -192,20 +190,29 @@ class PredictTieStrength(object):
 
     def merge_scores(self):
         mat = []
+        ds = np.zeros(len(self.variables))
         for scores in self.single_scores.values():
             colnames = scores.keys()
-            mat.append(pd.DataFrame(scores).as_matrix())
-
-        mat = sum(mat) / len(self.single_scores)
-        self.average_score = pd.DataFrame(mat, columns=colnames)
+            d = pd.DataFrame(scores).as_matrix()
+            dm = d.mean(0)
+            mat.append(np.array([dmi * di for dmi, di in zip(dm, d.T)]))
+            ds += dm
+        #For each variable, we get the weighted average of the performance
+        if mat:
+            mat = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
+            self.average_score = pd.DataFrame(mat, columns=colnames)
 
         self.average_dual_score = {}
         for var, var_models in self.dual_scores.items():
             mat = []
+            ds = np.zeros(len(self.variables))
             for scores in var_models.values():
                 colnames = scores.keys()
-                mat.append(pd.DataFrame(scores).as_matrix())
-            mat = sum(mat) / len(var_models)
+                d = pd.DataFrame(scores).as_matrix()
+                dm = d.mean(0)
+                mat.append(np.array([dmi * di for dmi, di in zip(dm, d.T)]))
+                ds += dm
+            mat = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
             self.average_dual_score[var] = pd.DataFrame(mat, columns=colnames)
 
 
@@ -215,21 +222,21 @@ class PredictTieStrength(object):
         if case == 'AVG':
             df = self.average_score
             df = df.reindex_axis(df.mean().sort_values().index, axis=1)
-        elif sort_order == 'average':
-            df_a = self.average_score
-            df = pd.DataFrame(self.single_scores[case])
-            df = df.reindex_axis(dfa.mean().sort_values().index, axis=1)
         else:
-            df = pd.DataFrame(self.single_scores[case])
-            df = df.reindex_axis(df.mean().sort_values().index, axis=1)
-
+            if sort_order == 'average':
+                df_a = self.average_score
+                df = pd.DataFrame(self.single_scores[case])
+                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+            else:
+                df = pd.DataFrame(self.single_scores[case])
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
 
         ticklabels = [self.col_labels[col] for col in df]
 
         g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'})
         xticks = [i + .5 for i in range(len(df.columns))]
         g.axes.set_xticks(xticks)
-        g.axes.set_xticklabels(ticklabels, rotation=67)
+        g.axes.set_xticklabels(ticklabels, rotation=90)
         alphas = [round(a, 3) for a in self.alphas]
 
         g.axes.set_yticks(range(0, 20, 3))
@@ -237,40 +244,45 @@ class PredictTieStrength(object):
         if self.y.name == 'ovrl':
             g.axes.set_ylabel(r'$O_{\alpha}$')
         elif self.y.name == 'ov_mean':
-            g.axes.set_ylabel(r'$\hat{O}_{\alpha}$')
+            g.axes.set_ylabel(r'$\hat{O}^t_{\alpha}$')
         g.axes.set_title(title, loc='left')
         g.get_figure().tight_layout()
 
         name = self.save_prefix + 'singlevar.{}.pdf'.format(case)
         g.get_figure().savefig(name)
+        plt.clf()
+        plt.close()
 
     def plot_dual_var(self, title=''):
-        latexify(6, 2, 1, uselatex=True)
-        index = self.average_score.mean().sort_vaues().index
+        latexify(6, 2, 1, usetex=True)
+        index = self.average_score.mean().sort_values().index
 
         fig, ax = plt.subplots()
-        name = r'$X + {}$'
+        name = r'$X +$ {}'
+        if 'w_hrs' in self.average_dual_score: #TODO; remove this two liens
+            self.average_dual_score.pop('w_hrs')
         for var, score in self.average_dual_score.items():
-            score.reindex_axis(index, axis=1, inplace=True)
+            score = score.reindex_axis(index, axis=1)
             values = np.mean(score, 0)
-            label = name.format(self.col_lables[var])
-            ax.scatter(values, label=label, alpha=.5)
+            label = name.format(self.col_labels[var])
+            ax.scatter(range(len(values)), values, label=label, alpha=.5)
         else:
             df = self.average_score.copy()
-            df.reindex_axis(index, axis=1, inplace=True)
-            values = np.mean(df_a)
+            df = df.reindex_axis(index, axis=1)
+            values = np.mean(df)
             label = r'$X$'
-            ax.scatter(values, label=label, alpha=.5)
+            ax.scatter(range(len(values)), values, label=label, alpha=.5)
 
 
-        xticks = [i + .5 for i in range(len(df.columns))]
+        xticks = [i + .1 for i in range(len(df.columns))]
         ax.set_xticks(xticks)
-        ticklabels = [col_labels[cols[i]] for i in df.columns]
+        ticklabels = [self.col_labels[col] for col in df]
         ax.set_xticklabels(ticklabels, rotation=90)
         ax.set_ylabel(r'$MCC$')
         ax.legend(loc=0)
         ax.set_title(title, loc='left')
         name = self.save_prefix + 'doublevar.pdf'
+        fig.tight_layout()
         fig.savefig(name)
 
 
