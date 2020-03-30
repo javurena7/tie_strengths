@@ -141,7 +141,9 @@ class PredictTieStrength(object):
 
 
     def save_scores(self, obj, name):
-        pickle.dump(obj, open(self.save_prefix + name, 'wb'))
+        with open(self.save_prefix + name, 'wb') as opn:
+            pickle.dump(obj, opn)
+
 
     def load_scores(self):
         single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f]
@@ -152,7 +154,7 @@ class PredictTieStrength(object):
             self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
         self.dual_scores = {}
         for df in dual_files:
-            fvar, model = sf.split('.')[1:3]
+            fvar, model = df.split('.')[1:3]
             if self.dual_scores.get(fvar, 0) == 0:
                 self.dual_scores[fvar] = {}
             self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
