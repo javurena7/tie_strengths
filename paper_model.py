@@ -1,7 +1,7 @@
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np; from numpy import inf
 import pandas as pd
-from scipy.stats import rankdata
+from scipy.stats import rankdata, spearmanr
 from sklearn.metrics import matthews_corrcoef
 import pickle
 from os import listdir
@@ -40,16 +40,16 @@ class PredictTieStrength(object):
                 'mu_r': r'$\bar{\tau}_R$',
                 'r_frsh': r'$\hat{f}$',
                 'age': r'$age$',
-                't_stb': r'$TS$',
+                't_stb': r'$ts$',
                 'm': r'$M$',
                 'bt_mu': r'$\bar{E}$',
                 'bt_sig': r'$\sigma^{E}$',
-                'bt_cv': r'$CV^E$',
+                'bt_cv': r'$cv^E$',
                 'bt_n': r'$N^E$',
                 'bt_tmu': r'$\bar{t}$',
                 'bt_tsig': r'$\sigma_{t}$',
-                'bt_logt': r'$\log(T)$',
-                'out_call_div': r'$JSD$',
+                'bt_logt': r'$log(T)$',
+                'out_call_div': r'$jsd$',
                 'r': r'$r$',
                 'w': r'$w$',
                 'e0_div': r'$JSD_{diff}$',
@@ -58,7 +58,7 @@ class PredictTieStrength(object):
                 'len': r'$l$',
                 'w_hrs': r'$w_h$',
                 'w_day': r'$w_d$'}
-        self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
+        self.col_labels.update({'c' + str(i): 'c' + r'$' + str(i) + '$' for i in range(1, 16)})
 
     def _init_models(self, models):
         available_models = {'SVC': 'LinearSVC',
@@ -259,8 +259,8 @@ class PredictTieStrength(object):
 
         fig, ax = plt.subplots()
         name = r'$X +$ {}'
-        if 'w_hrs' in self.average_dual_score: #TODO; remove this two liens
-            self.average_dual_score.pop('w_hrs')
+        #if 'w_hrs' in self.average_dual_score:
+        #    self.average_dual_score.pop('w_hrs')
         for var, score in self.average_dual_score.items():
             score = score.reindex_axis(index, axis=1)
             values = np.mean(score, 0)
@@ -284,6 +284,32 @@ class PredictTieStrength(object):
         name = self.save_prefix + 'doublevar.pdf'
         fig.tight_layout()
         fig.savefig(name)
+
+    def plot_all_single(self):
+        for case in ['AVG'] + self.single_scores.keys():
+            self.plot_singlevar_mcc(case=case, sort_order='self')
+
+    def plot_corrs(self):
+        latexify(8, 3.75, 1, usetex=True)
+        reindex = ['w', 'w_day', 'w_hrs', 'len', 'avg_len', 'r', 'mu', 'sig', 'b', 'mu_r', 'm', 'r_frsh', 'age', 't_stb', 'bt_n', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_tmu', 'bt_tsig', 'bt_logt', 'out_call_div'] + ['c' + str(i) for i in range(1, 16)]
+        df = self.x.copy()
+        df = df.reindex_axis(reindex, axis=1)
+        fig, axs = plt.subplots(1, 2, sharey=True, sharex=True)
+        cbar_ax = fig.add_axes([.91, .3, .03, .4])
+
+        ticklabels = [self.col_labels[col] for col in reindex]
+        dfc = df.corr('pearson')
+        g1 = sns.heatmap(dfc, ax=axs[0], center=0, cbar=False, cbar_ax=None)
+        g1.set_xticklabels(ticklabels)
+        g1.set_yticklabels(ticklabels)
+
+        dfc = df.corr('spearman')
+        g2 = sns.heatmap(dfc, ax=axs[1], center=0, cbar=True, cbar_ax=cbar_ax,
+                vmin=-1, vmax=1, xticklabels=ticklabels, yticklabels=ticklabels)
+
+        fig.tight_layout(rect=[0, 0, .9, 1])
+        fig.savefig(self.save_prefix + 'correlations.pdf')
+
 
 
 if __name__ == '__main__':
