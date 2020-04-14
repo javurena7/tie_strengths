@@ -462,6 +462,8 @@ if __name__ == '__main__':
     r = "r" if eval(pargs.ranked) else "nr"
     save_path = os.path.join(pargs.save_path, "{}-{}/".format(pargs.y_var, r))
     cluster_only = eval(pargs.cluster_only)
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
     if cluster_only:
         save_path  = os.path.join(save_path, 'cluster/')
     if not os.path.exists(save_path):
