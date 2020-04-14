@@ -108,7 +108,7 @@ class PredictTieStrength(object):
         df.drop(y_var, axis=1, inplace=True)
         if cluster_only:
             from re import match
-            columns = [col for col in df.columns if re.match('c\d', col)]
+            columns = [col for col in df.columns if match('c\d', col)]
             df = df[columns]
         self.variables = list(df.columns)
         self.x = df
@@ -443,7 +443,11 @@ if __name__ == '__main__':
     parser.add_argument("--ranked", default=False)
     parser.add_argument("--models", default=["QDA"], nargs="+") #nargs=+, take 1 or more arguments
     parser.add_argument("--save_path", default="./")
+    parser.add_argument("--cluster_only", default=False)
+    parser.add_argumnet("--single_var", default=True)
     parser.add_argument("--fvars", default=[], nargs="*") #nargs=*, take 0 or more arguments
+    parser.add_argumnet("--full_vars", default=False)
+
     remove_default = ['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1']
 
     parser.add_argument("--remove", default=remove_default, nargs="*")
@@ -457,15 +461,17 @@ if __name__ == '__main__':
 
     r = "r" if eval(pargs.ranked) else "nr"
     save_path = os.path.join(pargs.save_path, "{}-{}/".format(pargs.y_var, r))
+    cluster_only = eval(pargs.cluster_only)
+    if cluster_only:
+        save_path  = os.path.join(save_path, 'cluster/')
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
-    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=eval(pargs.ranked), remove=remove)
+    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=eval(pargs.ranked), remove=remove, cluster_only=cluster_only)
     PTS.get_alphas()
-    PTS.run_alphas(fvars=pargs.fvars)
+    PTS.run_alphas(single_var=eval(pargs.single_var), fvars=pargs.fvars, full_vars=eval(pargs.full_vars))
 
 """
-
 #to = pd.read_csv('full_run/reduced_')
 # FOR TEMPORAL OVERLAP
 to = pd.read_csv('full_run/temporal_overlap_reduced.txt', sep=' ')
