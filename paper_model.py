@@ -22,8 +22,34 @@ from sklearn.neural_network import MLPClassifier
 class PredictTieStrength(object):
     def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False):
         self.save_prefix = save_prefix
+        self.data_path = data_path
         self._init_models(models)
         self.k = k
+        self.col_labels = {'mu': r'$\bar{\tau}$',
+                'sig': r'$\bar{\sigma_{\tau}}$',
+                'b': r'$B$',
+                'mu_r': r'$\bar{\tau}_R$',
+                'r_frsh': r'$\hat{f}$',
+                'age': r'$age$',
+                't_stb': r'$TS$',
+                'm': r'$M$',
+                'bt_mu': r'$\bar{E}$',
+                'bt_sig': r'$\sigma^{E}$',
+                'bt_cv': r'$CV^E$',
+                'bt_n': r'$N^E$',
+                'bt_tmu': r'$\bar{t}$',
+                'bt_tsig': r'$\sigma_{t}$',
+                'bt_logt': r'$log(T)$',
+                'out_call_div': r'$JSD$',
+                'r': r'$r$',
+                'w': r'$w$',
+                'e0_div': r'$JSD_{diff}$',
+                'ovrl': r'$O$',
+                'avg_len': r'$\hat{l}$',
+                'len': r'$l$',
+                'w_hrs': r'$w_h$',
+                'w_day': r'$w_d$'}
+        self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
         if data_path:
             self.read_tables(data_path, y_var, remove)
             self.single_scores = self._init_scores()
@@ -33,32 +59,8 @@ class PredictTieStrength(object):
         self.dual_scores = {}
         self.alpha_step = alpha_step
         self.ranked = ranked
+        self._init_full_scores()
 
-        self.col_labels = {'mu': r'$\bar{\tau}$',
-                'sig': r'$\bar{\sigma_{\tau}}$',
-                'b': r'$B$',
-                'mu_r': r'$\bar{\tau}_R$',
-                'r_frsh': r'$\hat{f}$',
-                'age': r'$age$',
-                't_stb': r'$ts$',
-                'm': r'$M$',
-                'bt_mu': r'$\bar{E}$',
-                'bt_sig': r'$\sigma^{E}$',
-                'bt_cv': r'$cv^E$',
-                'bt_n': r'$N^E$',
-                'bt_tmu': r'$\bar{t}$',
-                'bt_tsig': r'$\sigma_{t}$',
-                'bt_logt': r'$log(T)$',
-                'out_call_div': r'$jsd$',
-                'r': r'$r$',
-                'w': r'$w$',
-                'e0_div': r'$JSD_{diff}$',
-                'ovrl': r'$O$',
-                'avg_len': r'$\hat{l}$',
-                'len': r'$l$',
-                'w_hrs': r'$w_h$',
-                'w_day': r'$w_d$'}
-        self.col_labels.update({'c' + str(i): 'c' + r'$' + str(i) + '$' for i in range(1, 16)})
 
     def _init_models(self, models):
         available_models = {'SVC': 'LinearSVC',
@@ -78,11 +80,17 @@ class PredictTieStrength(object):
     def _init_dual_scores(self, fvar):
         self.dual_scores[fvar] = self._init_scores()
 
+    def _init_full_scores(self):
+        self.feature_imp = {kind[0]: [] for kind in self.models}
+        self.full_scores = self.feature_imp.copy()
+        self.imp_df = {}
+
     def read_tables(self, path, y_var, remove):
         if 'delta_t' in path:
             deltas = pickle.load(open(path + 'deltas.p', 'rb'))
             colnames = ['ov_mean', 'ovrl', '0', '1'] + sorted(deltas, key=lambda x: int(x))
             df = pd.read_csv(path + 'new_full_bt_n.txt', sep=' ', names=colnames, index_col=['0', '1'], skiprows=1)
+            self.update_delta_colnames(deltas)
         else:
 
             df = pd.read_csv(path + 'full_df_paper.txt', sep=' ', index_col=['0', '1'])
@@ -100,6 +108,19 @@ class PredictTieStrength(object):
         df.drop(y_var, axis=1, inplace=True)
         self.variables = list(df.columns)
         self.x = df
+
+    def update_delta_colnames(self, deltas):
+        self.col_labels = {}
+        for delta in deltas:
+            dta = int(delta)
+            if dta < 3600:
+                self.col_labels[delta] = str(dta / 60) + 'm'
+            elif dta < 86400:
+                self.col_labels[delta] = str(dta / 3600) + 'h'
+            else:
+                days, hrs = dta / 86400, (dta % 86400) / 3600
+                self.col_labels[delta] = "{}d {}h".format(days, hrs)
+
 
     def get_alphas(self):
         self.alphas = [0] + [np.percentile(self.y[self.y > 0], i) for i in range(5, 100, self.alpha_step)]
@@ -154,9 +175,41 @@ class PredictTieStrength(object):
 
         self.save_scores(self.dual_scores[fvar][model[0]], 'dual_scores.{}.{}.p'.format(fvar, model[0]))
 
-    def run_alphas(self, fvars=[], single_var=True):
+
+    def eval_full(self, model):
+        scores = []
+        feat_imports = []
+        for train_idx, test_idx in self.kfold():
+            x = self.x.iloc[train_idx]
+            xt = self.x.iloc[test_idx]
+            model[1].fit(x, self.yb[train_idx])
+            y_pred = model[1].predict(xt)
+            scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
+            self.get_feat_imports(model, feat_imports)
+        score = np.mean(scores)
+        feat_imports = np.mean(feat_imports, 0)[0]
+
+        self.full_scores[model[0]].append(score)
+        self.feature_imp[model[0]].append(feat_imports)
+
+        self.save_scores(self.full_scores[model[0]], 'full_scores.{}.p'.format(model[0]))
+        self.save_scores(self.feature_imp[model[0]], 'feature_imp.{}.p'.format(model[0]))
+
+    def get_feat_imports(self, model, feat_imports):
+        if model[0] in ['LR', 'SVC']:
+            feat_imports.append(model[1].coef_)
+        elif model[0] in ['RF', 'ABC']:
+            feat_imports.append(model[1].feature_importances_)
+        else:
+            feat_imports.append([])
+
+
+    def run_alphas(self, fvars=[], single_var=True, full_vars=False):
         for fvar in fvars:
             self._init_dual_scores(fvar)
+
+        if full_vars:
+            self.feature_imp['vars'] = self.x.columns.values
         for alpha in self.alphas:
             print('--- alpha = {} --- '.format(alpha))
             self.get_y_class(alpha)
@@ -166,6 +219,8 @@ class PredictTieStrength(object):
                     self.eval_single_var(model)
                 for fvar in fvars:
                     self.eval_dual_var(model, fvar)
+                if full_vars == True:
+                    self.eval_full(model)
 
 
     def save_scores(self, obj, name):
@@ -173,9 +228,12 @@ class PredictTieStrength(object):
             pickle.dump(obj, opn)
 
 
-    def load_scores(self, single=True, dual=False):
+    def load_scores(self, single=True, dual=False, full=False):
         single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f] if single else []
         dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f] if dual else []
+        full_files = [f for f in listdir(self.save_prefix) if 'full_scores' in f] if full else []
+        imps_files = [f for f in listdir(self.save_prefix) if 'feature_imp' in f] if full else []
+
         self.single_scores = {}
         for sf in single_files:
             model = sf.split('.')[1]
@@ -186,6 +244,13 @@ class PredictTieStrength(object):
             if self.dual_scores.get(fvar, 0) == 0:
                 self.dual_scores[fvar] = {}
             self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
+
+        self.feature_imp = {}
+        self.full_scores = {}
+        for ff, imf in zip(full_files, imps_files):
+            model = ff.split('.')[1]
+            self.full_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'))
+            self.feature_imp[model] = pickle.load(open(self.save_prefix + imf, 'rb'))
 
 
     def merge_scores(self):
@@ -216,31 +281,76 @@ class PredictTieStrength(object):
             self.average_dual_score[var] = pd.DataFrame(mat, columns=colnames)
 
 
+        if self.feature_imp:
+            colnames = self.feature_imp.pop('vars')
+            self.imp_df = {}
+        for model, scores in self.feature_imp.items():
+            import pdb; pdb.set_trace()
+            df = pd.DataFrame(scores, columns=colnames)
+            self.imp_df[model] = df
+
+
+    def plot_feature_imp(self, case='LR'):
+        latexify(6, 2.2, 2, usetex=True)
+        assert self.imp_df, "run merge_scores for feature imp"
+        df = self.imp_df[case]
+        df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        g = sns.heatmap(df, cmap='BrBG', cbar_kws = {'label': r'$FI$'})
+        xticks = [i + .5 for i in range(len(df.columns))]
+        ticklabels = [self.col_labels[col] for col in df]
+        g.axes.set_xticks(xticks)
+        g.axes.set_xticklabels(ticklabels, rotation=90)
+
+        alphas = [round(a, 3) for a in self.alphas]
+        g.axes.set_yticks(np.arange(.5, len(alphas) + .5, 3))
+        g.axes.set_yticklabels(alphas[0:len(alphas):3], rotation=0)
+
+        if self.y.name == 'ovrl':
+            g.axes.set_ylabel(r'$O_{\alpha}$')
+        elif self.y.name == 'ov_mean':
+            g.axes.set_ylabel(r'$\hat{O}^t_{\alpha}$')
+        g.axes.set_title(title, loc='left')
+        g.get_figure().tight_layout()
+
+        name = self.save_prefix + 'feature_imp.{}.pdf'.format(case)
+        g.get_figure().savefig(name)
+        plt.clf()
+        plt.close()
+
+
     def plot_singlevar_mcc(self, case='AVG', sort_order='average', title=''):
         latexify(6, 2.2, 2, usetex=True)
 
         if case == 'AVG':
             df = self.average_score
-            df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+            if sort_order in ['average', 'self']:
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
         else:
             if sort_order == 'average':
                 df_a = self.average_score
                 df = pd.DataFrame(self.single_scores[case])
                 df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
-            else:
+            elif sort_order == 'self':
                 df = pd.DataFrame(self.single_scores[case])
                 df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+            else:
+                df = pd.DataFrame(self.single_scores[case])
 
-        ticklabels = [self.col_labels[col] for col in df]
 
         g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'})
-        xticks = [i + .5 for i in range(len(df.columns))]
+        if 'delta_t' in self.data_path:
+            basis = [0, 12 * 3600, 60, 1800]
+            xticks = [i + .5 for i, j in enumerate(df.columns) if int(j) % (3600 * 24) in basis]
+            ticklabels = [self.col_labels[j] for i, j in enumerate(df.columns) if i + .5 in xticks]
+        else:
+            xticks = [i + .5 for i in range(len(df.columns))]
+            ticklabels = [self.col_labels[col] for col in df]
         g.axes.set_xticks(xticks)
         g.axes.set_xticklabels(ticklabels, rotation=90)
         alphas = [round(a, 3) for a in self.alphas]
 
-        g.axes.set_yticks(range(0, 20, 3))
-        g.axes.set_yticklabels(alphas[0:20:3], rotation=0)
+        g.axes.set_yticks(np.arange(.5, len(alphas) + .5, 3))
+        g.axes.set_yticklabels(alphas[0:len(alphas):3], rotation=0)
         if self.y.name == 'ovrl':
             g.axes.set_ylabel(r'$O_{\alpha}$')
         elif self.y.name == 'ov_mean':
@@ -254,17 +364,17 @@ class PredictTieStrength(object):
         plt.close()
 
     def plot_dual_var(self, title=''):
-        latexify(6, 2, 1, usetex=True)
+        latexify(5.2, 2.2, 1, usetex=True)
         index = self.average_score.mean().sort_values().index
 
         fig, ax = plt.subplots()
-        name = r'$X +$ {}'
+        name = r'$($' +'{}' + r'$, X)$'
         #if 'w_hrs' in self.average_dual_score:
         #    self.average_dual_score.pop('w_hrs')
         for var, score in self.average_dual_score.items():
             score = score.reindex_axis(index, axis=1)
             values = np.mean(score, 0)
-            label = name.format(self.col_labels[var])
+            label = self.col_labels[var] #' #name.format(self.col_labels[var])
             ax.scatter(range(len(values)), values, label=label, alpha=.5)
         else:
             df = self.average_score.copy()
@@ -285,21 +395,29 @@ class PredictTieStrength(object):
         fig.tight_layout()
         fig.savefig(name)
 
-    def plot_all_single(self):
+    def plot_all_single(self, sort_order='self'):
         for case in ['AVG'] + self.single_scores.keys():
-            self.plot_singlevar_mcc(case=case, sort_order='self')
+            self.plot_singlevar_mcc(case=case, sort_order=sort_order)
 
     def plot_corrs(self):
         latexify(8, 3.75, 1, usetex=True)
-        reindex = ['w', 'w_day', 'w_hrs', 'len', 'avg_len', 'r', 'mu', 'sig', 'b', 'mu_r', 'm', 'r_frsh', 'age', 't_stb', 'bt_n', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_tmu', 'bt_tsig', 'bt_logt', 'out_call_div'] + ['c' + str(i) for i in range(1, 16)]
         df = self.x.copy()
+        if 'delta_t' in self.data_path:
+            reindex = self.x.columns
+            basis = [0, 12 * 3600, 60, 1800]
+            xticks = [i for i, j in enumerate(df.columns) if int(j) % (3600 * 24) in basis]
+            ticklabels = [self.col_labels[j] if i in xticks else '' for i, j in enumerate(df.columns)]
+        else:
+            reindex = ['w', 'w_day', 'w_hrs', 'len', 'avg_len', 'r', 'mu', 'sig', 'b', 'mu_r', 'm', 'r_frsh', 'age', 't_stb', 'bt_n', 'bt_mu', 'bt_sig', 'bt_cv', 'bt_tmu', 'bt_tsig', 'bt_logt', 'out_call_div'] + ['c' + str(i) for i in range(1, 16)]
+            xticks = [i for i in range(len(reindex))]
+            ticklabels = [self.col_labels[col] for col in reindex]
         df = df.reindex_axis(reindex, axis=1)
         fig, axs = plt.subplots(1, 2, sharey=True, sharex=True)
         cbar_ax = fig.add_axes([.91, .3, .03, .4])
 
-        ticklabels = [self.col_labels[col] for col in reindex]
         dfc = df.corr('pearson')
-        g1 = sns.heatmap(dfc, ax=axs[0], center=0, cbar=False, cbar_ax=None)
+        g1 = sns.heatmap(dfc, ax=axs[0], center=0, cbar=False, cbar_ax=None,
+                xticklabels=ticklabels, yticklabels=ticklabels)
         g1.set_xticklabels(ticklabels)
         g1.set_yticklabels(ticklabels)
 
