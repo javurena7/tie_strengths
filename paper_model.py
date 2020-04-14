@@ -440,13 +440,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", default="/scratch/work/urenaj1/full/")
     parser.add_argument("--y_var", default="ovrl")
-    parser.add_argument("--ranked", default=False)
+    parser.add_argument("--ranked", default="False")
     parser.add_argument("--models", default=["QDA"], nargs="+") #nargs=+, take 1 or more arguments
     parser.add_argument("--save_path", default="./")
-    parser.add_argument("--cluster_only", default=False)
-    parser.add_argumnet("--single_var", default=True)
+    parser.add_argument("--cluster_only", default="False")
+    parser.add_argument("--single_var", default="True")
     parser.add_argument("--fvars", default=[], nargs="*") #nargs=*, take 0 or more arguments
-    parser.add_argumnet("--full_vars", default=False)
+    parser.add_argument("--full_vars", default="False")
 
     remove_default = ['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1']
 
@@ -454,10 +454,10 @@ if __name__ == '__main__':
     pargs = parser.parse_args()
 
     remove = pargs.remove
-    if pargs.y_var == 'ovrl':
-        remove.append('ov_mean')
-    elif pargs.y_var == 'ov_mean':
-        remove.append('ovrl')
+    #if pargs.y_var == 'ovrl':
+    #    remove.append('ov_mean')
+    #elif pargs.y_var == 'ov_mean':
+    #    remove.append('ovrl')
 
     r = "r" if eval(pargs.ranked) else "nr"
     save_path = os.path.join(pargs.save_path, "{}-{}/".format(pargs.y_var, r))
