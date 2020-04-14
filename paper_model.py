@@ -20,7 +20,7 @@ from sklearn.neural_network import MLPClassifier
 
 
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False, cluster_only=False):
         self.save_prefix = save_prefix
         self.data_path = data_path
         self._init_models(models)
@@ -51,7 +51,7 @@ class PredictTieStrength(object):
                 'w_day': r'$w_d$'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
         if data_path:
-            self.read_tables(data_path, y_var, remove)
+            self.read_tables(data_path, y_var, remove, cluster_only)
             self.single_scores = self._init_scores()
         else:
             self.variables = []
@@ -82,10 +82,10 @@ class PredictTieStrength(object):
 
     def _init_full_scores(self):
         self.feature_imp = {kind[0]: [] for kind in self.models}
-        self.full_scores = self.feature_imp.copy()
+        self.full_scores = {kind[0]: [] for kind in self.models}
         self.imp_df = {}
 
-    def read_tables(self, path, y_var, remove):
+    def read_tables(self, path, y_var, remove, cluster_only):
         if 'delta_t' in path:
             deltas = pickle.load(open(path + 'deltas.p', 'rb'))
             colnames = ['ov_mean', 'ovrl', '0', '1'] + sorted(deltas, key=lambda x: int(x))
@@ -106,6 +106,10 @@ class PredictTieStrength(object):
         df.dropna(inplace=True)
         self.y = df[y_var]
         df.drop(y_var, axis=1, inplace=True)
+        if cluster_only:
+            from re import match
+            columns = [col for col in df.columns if re.match('c\d', col)]
+            df = df[columns]
         self.variables = list(df.columns)
         self.x = df
 
@@ -140,7 +144,6 @@ class PredictTieStrength(object):
     def kfold(self):
         skf = StratifiedKFold(n_splits=self.k, random_state=0)
         return skf.split(self.x, self.yb)
-
 
     def eval_single_var(self, model):
         for var in self.x.columns:
@@ -178,17 +181,16 @@ class PredictTieStrength(object):
 
     def eval_full(self, model):
         scores = []
-        feat_imports = []
+        feat_imports_k = []
         for train_idx, test_idx in self.kfold():
             x = self.x.iloc[train_idx]
             xt = self.x.iloc[test_idx]
             model[1].fit(x, self.yb[train_idx])
             y_pred = model[1].predict(xt)
             scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
-            self.get_feat_imports(model, feat_imports)
+            self.get_feat_imports(model, feat_imports_k)
         score = np.mean(scores)
-        feat_imports = np.mean(feat_imports, 0)[0]
-
+        feat_imports = np.mean(feat_imports_k, 0)
         self.full_scores[model[0]].append(score)
         self.feature_imp[model[0]].append(feat_imports)
 
@@ -197,7 +199,7 @@ class PredictTieStrength(object):
 
     def get_feat_imports(self, model, feat_imports):
         if model[0] in ['LR', 'SVC']:
-            feat_imports.append(model[1].coef_)
+            feat_imports.append(model[1].coef_[0])
         elif model[0] in ['RF', 'ABC']:
             feat_imports.append(model[1].feature_importances_)
         else:
@@ -210,6 +212,7 @@ class PredictTieStrength(object):
 
         if full_vars:
             self.feature_imp['vars'] = self.x.columns.values
+            self.save_scores(self.feature_imp['vars'], 'feature_imp.vars.p')
         for alpha in self.alphas:
             print('--- alpha = {} --- '.format(alpha))
             self.get_y_class(alpha)
@@ -228,7 +231,7 @@ class PredictTieStrength(object):
             pickle.dump(obj, opn)
 
 
-    def load_scores(self, single=True, dual=False, full=False):
+    def load_scores(self, single=False, dual=False, full=False):
         single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f] if single else []
         dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f] if dual else []
         full_files = [f for f in listdir(self.save_prefix) if 'full_scores' in f] if full else []
@@ -247,9 +250,11 @@ class PredictTieStrength(object):
 
         self.feature_imp = {}
         self.full_scores = {}
-        for ff, imf in zip(full_files, imps_files):
+        for ff in full_files:
             model = ff.split('.')[1]
             self.full_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'))
+        for imf in imps_files:
+            model = imf.split('.')[1]
             self.feature_imp[model] = pickle.load(open(self.save_prefix + imf, 'rb'))
 
 
@@ -285,16 +290,15 @@ class PredictTieStrength(object):
             colnames = self.feature_imp.pop('vars')
             self.imp_df = {}
         for model, scores in self.feature_imp.items():
-            import pdb; pdb.set_trace()
             df = pd.DataFrame(scores, columns=colnames)
             self.imp_df[model] = df
 
 
-    def plot_feature_imp(self, case='LR'):
+    def plot_feature_imp(self, case='LR', title=''):
         latexify(6, 2.2, 2, usetex=True)
         assert self.imp_df, "run merge_scores for feature imp"
         df = self.imp_df[case]
-        df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        df = df.reindex_axis(df.abs().mean().sort_values().index, axis=1)
         g = sns.heatmap(df, cmap='BrBG', cbar_kws = {'label': r'$FI$'})
         xticks = [i + .5 for i in range(len(df.columns))]
         ticklabels = [self.col_labels[col] for col in df]
