@@ -6,7 +6,7 @@ from sklearn.metrics import matthews_corrcoef
 import pickle
 from os import listdir
 from collections import OrderedDict
-import matplotlib.pyplot as plt; plt.ion()
+import matplotlib.pyplot as plt #; plt.ion()
 import seaborn as sns
 
 from latexify import *
@@ -296,11 +296,16 @@ class PredictTieStrength(object):
 
 
     def plot_feature_imp(self, case='LR', title=''):
+        plt.close('all')
         latexify(6, 2.2, 2, usetex=True)
         assert self.imp_df, "run merge_scores for feature imp"
         df = self.imp_df[case]
         df = df.reindex_axis(df.abs().mean().sort_values().index, axis=1)
-        g = sns.heatmap(df, cmap='BrBG', cbar_kws = {'label': r'$FI$'})
+        if case in ['LR', 'SVC']:
+            center = 0
+        else:
+            center = 1. / len(df.columns)
+        g = sns.heatmap(df, cmap='BrBG', center=center, cbar_kws = {'label': r'$FI$'})
         xticks = [i + .5 for i in range(len(df.columns))]
         ticklabels = [self.col_labels[col] for col in df]
         g.axes.set_xticks(xticks)
@@ -317,7 +322,7 @@ class PredictTieStrength(object):
         g.axes.set_title(title, loc='left')
         g.get_figure().tight_layout()
 
-        name = self.save_prefix + 'feature_imp.{}.pdf'.format(case)
+        name = self.save_prefix + 'fimp_{}.pdf'.format(case)
         g.get_figure().savefig(name)
         plt.clf()
         plt.close()
@@ -404,7 +409,6 @@ class PredictTieStrength(object):
         assert self.full_scores is not None, 'Run or load full scores first'
         latexify(3, 3, 1, usetex=True)
         fig, ax = plt.subplots()
-        alphas = self.alphas
         for model, scores in self.full_scores.items():
             ax.plot(scores, label=model)
         ax.legend(loc=0)
@@ -413,8 +417,12 @@ class PredictTieStrength(object):
             ax.set_xlabel(r'$O_{\alpha}$')
         elif self.y.name == 'ov_mean':
             ax.set_xlabel(r'$\hat{O}^t_{\alpha}$')
+        alphas = [round(a, 3) for a in self.alphas]
+
+        ax.set_xticks(np.arange(.5, len(alphas) + .5, 3))
+        ax.set_xticklabels(alphas[0:len(alphas):3], rotation=0)
         ax.set_ylabel('MCC')
-        name = self.save_prefix + 'full_scores.pdf'
+        name = self.save_prefix + 'fscores.pdf'
         fig.tight_layout()
         fig.savefig(name)
 
