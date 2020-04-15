@@ -287,11 +287,12 @@ class PredictTieStrength(object):
 
 
         if self.feature_imp:
-            colnames = self.feature_imp.pop('vars')
+            colnames = self.feature_imp['vars']
             self.imp_df = {}
         for model, scores in self.feature_imp.items():
-            df = pd.DataFrame(scores, columns=colnames)
-            self.imp_df[model] = df
+            if model not in ['vars', 'QDA']:
+                df = pd.DataFrame(scores, columns=colnames)
+                self.imp_df[model] = df
 
 
     def plot_feature_imp(self, case='LR', title=''):
@@ -398,6 +399,25 @@ class PredictTieStrength(object):
         name = self.save_prefix + 'doublevar.pdf'
         fig.tight_layout()
         fig.savefig(name)
+
+    def plot_full_scores(self, title=''):
+        assert self.full_scores is not None, 'Run or load full scores first'
+        latexify(3, 3, 1, usetex=True)
+        fig, ax = plt.subplots()
+        alphas = self.alphas
+        for model, scores in self.full_scores.items():
+            ax.plot(scores, label=model)
+        ax.legend(loc=0)
+        ax.set_title(title)
+        if self.y.name == 'ovrl':
+            ax.set_xlabel(r'$O_{\alpha}$')
+        elif self.y.name == 'ov_mean':
+            ax.set_xlabel(r'$\hat{O}^t_{\alpha}$')
+        ax.set_ylabel('MCC')
+        name = self.save_prefix + 'full_scores.pdf'
+        fig.tight_layout()
+        fig.savefig(name)
+
 
     def plot_all_single(self, sort_order='self'):
         for case in ['AVG'] + self.single_scores.keys():
