@@ -20,11 +20,12 @@ from sklearn.neural_network import MLPClassifier
 
 
 class PredictTieStrength(object):
-    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False, cluster_only=False):
+    def __init__(self, y_var, data_path='../paper_run/sample/', models=['SVC', 'LR'], remove=['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1'], save_prefix='../paper/', k=3, alpha_step=5, ranked=False, cluster_only=False, c_star=False):
         self.save_prefix = save_prefix
         self.data_path = data_path
         self._init_models(models)
         self.k = k
+        self.c_star = c_star
         self.col_labels = {'mu': r'$\bar{\tau}$',
                 'sig': r'$\bar{\sigma_{\tau}}$',
                 'b': r'$B$',
@@ -43,6 +44,7 @@ class PredictTieStrength(object):
                 'out_call_div': r'$JSD$',
                 'r': r'$r$',
                 'w': r'$w$',
+                'c_star': r'$C^*$',
                 'e0_div': r'$JSD_{diff}$',
                 'ovrl': r'$O$',
                 'avg_len': r'$\hat{l}$',
@@ -50,6 +52,7 @@ class PredictTieStrength(object):
                 'w_hrs': r'$w_h$',
                 'w_day': r'$w_d$'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
+
         if data_path:
             self.read_tables(data_path, y_var, remove, cluster_only)
             self.single_scores = self._init_scores()
@@ -111,6 +114,7 @@ class PredictTieStrength(object):
             columns = [col for col in df.columns if match('c\d', col)]
             df = df[columns]
         self.variables = list(df.columns)
+        self.variables += ['c_star'] if self.c_star else []
         self.x = df
 
     def update_delta_colnames(self, deltas):
@@ -146,6 +150,8 @@ class PredictTieStrength(object):
         return skf.split(self.x, self.yb)
 
     def eval_single_var(self, model):
+        assert not self.c_star, "c_star not implemented for single_var"
+        # NOTE: so far c_star is not included here, but in full model
         for var in self.x.columns:
             scores = []
             for train_idx, test_idx in self.kfold():
@@ -162,12 +168,24 @@ class PredictTieStrength(object):
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
 
     def eval_dual_var(self, model, fvar):
-        for var in self.x.columns:
+        """
+        If c_star, calculate a model with all clusters
+        """
+
+        var_set = list(self.x.columns)
+        if self.c_star:
+            from re import match
+            c_vars = [fvar] + [c for c in var_set if match('c\d', c)]
+            var_set += ['c_star']
+        for var in var_set:
             scores = []
             for train_idx, test_idx in self.kfold():
                 if var == fvar:
                     x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
                     xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                elif var == 'c_star':
+                    x = self.x.iloc[train_idx][c_vars]
+                    xt = self.x.iloc[test_idx][c_vars]
                 else:
                     x = self.x.iloc[train_idx][[fvar, var]]
                     xt = self.x.iloc[test_idx][[fvar, var]]
@@ -207,6 +225,7 @@ class PredictTieStrength(object):
 
 
     def run_alphas(self, fvars=[], single_var=True, full_vars=False):
+        # SO far c_star only implemented for dual_var
         for fvar in fvars:
             self._init_dual_scores(fvar)
 
@@ -368,7 +387,7 @@ class PredictTieStrength(object):
         g.axes.set_title(title, loc='left')
         g.get_figure().tight_layout()
 
-        name = self.save_prefix + 'singlevar.{}.pdf'.format(case)
+        name = self.save_prefix + 'singlevar_{}.pdf'.format(case)
         g.get_figure().savefig(name)
         plt.clf()
         plt.close()
@@ -378,7 +397,7 @@ class PredictTieStrength(object):
         index = self.average_score.mean().sort_values().index
 
         fig, ax = plt.subplots()
-        name = r'$($' +'{}' + r'$, X)$'
+        name = r'${}$'
         #if 'w_hrs' in self.average_dual_score:
         #    self.average_dual_score.pop('w_hrs')
         for var, score in self.average_dual_score.items():
@@ -475,6 +494,7 @@ if __name__ == '__main__':
     parser.add_argument("--single_var", default="True")
     parser.add_argument("--fvars", default=[], nargs="*") #nargs=*, take 0 or more arguments
     parser.add_argument("--full_vars", default="False")
+    parser.add_argument("--c_star", default="False")
 
     remove_default = ['deg_0', 'deg_1', 'n_ij', 'e0_div', 'e1_div', 'bt_tsig1']
 
@@ -497,7 +517,7 @@ if __name__ == '__main__':
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
-    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=eval(pargs.ranked), remove=remove, cluster_only=cluster_only)
+    PTS = PredictTieStrength(y_var=pargs.y_var, data_path=pargs.data_path, save_prefix=save_path, models=pargs.models, k=3, alpha_step=5, ranked=eval(pargs.ranked), remove=remove, cluster_only=cluster_only, c_star=eval(pargs.c_star))
     PTS.get_alphas()
     PTS.run_alphas(single_var=eval(pargs.single_var), fvars=pargs.fvars, full_vars=eval(pargs.full_vars))
 
