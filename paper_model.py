@@ -348,6 +348,7 @@ class PredictTieStrength(object):
 
 
     def plot_singlevar_mcc(self, case='AVG', sort_order='average', title=''):
+        plt.close('all')
         latexify(6, 2.2, 2, usetex=True)
 
         if case == 'AVG':
@@ -393,6 +394,7 @@ class PredictTieStrength(object):
         plt.close()
 
     def plot_dual_var(self, title=''):
+        plt.close('all')
         latexify(5.2, 2.2, 1, usetex=True)
         index = self.average_score.mean().sort_values().index
 
@@ -425,6 +427,7 @@ class PredictTieStrength(object):
         fig.savefig(name)
 
     def plot_full_scores(self, title=''):
+        plt.close('all')
         assert self.full_scores is not None, 'Run or load full scores first'
         latexify(3, 3, 1, usetex=True)
         fig, ax = plt.subplots()
