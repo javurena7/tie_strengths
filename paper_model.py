@@ -63,6 +63,7 @@ class PredictTieStrength(object):
         self.alpha_step = alpha_step
         self.ranked = ranked
         self._init_full_scores()
+        self._init_model_params()
 
 
     def _init_models(self, models):
@@ -74,7 +75,7 @@ class PredictTieStrength(object):
         self.models = []
         for model in models:
             model_str = available_models[model] + '()'
-            self.models.append((model, eval(model_str)))
+            self.models.append((model, model_str))
 
 
     def _init_scores(self):
@@ -87,6 +88,20 @@ class PredictTieStrength(object):
         self.feature_imp = {kind[0]: [] for kind in self.models}
         self.full_scores = {kind[0]: [] for kind in self.models}
         self.imp_df = {}
+
+    def _init_model_params(self):
+        smodel_params = {'LR': {'C': 1, 'fit_intercept': True},
+                'QDA': {},
+                'RF': {'criterion': 'entropy', 'n_estimators' : 20},
+                'ABC': {}}
+
+        fmodel_params = {'LR': {'C': .5, 'fit_intercept': False},
+                'QDA': {'reg_param' : .25},
+                'RF': {'max_features': 'log2', 'criterion': 'entropy', 'n_estimators': 50},
+                'ABC': {}}
+
+        self.smodel_params = smodel_params
+        self.fmodel_params = fmodel_params
 
     def read_tables(self, path, y_var, remove, cluster_only):
         if 'delta_t' in path:
@@ -161,8 +176,10 @@ class PredictTieStrength(object):
                     rank_x = lambda x: rankdata(x) / x.shape[0]
                     x = rank_x(x).reshape(-1, 1)
                     xt = rank_x(xt).reshape(-1, 1)
-                model[1].fit(x, self.yb[train_idx])
-                y_pred = model[1].predict(xt)
+                mod = eval(model[1])
+                mod.set_params(**self.smodel_params[model[0]])
+                mod.fit(x, self.yb[train_idx])
+                y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
             self.single_scores[model[0]][var].append(np.mean(scores))
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
@@ -179,18 +196,22 @@ class PredictTieStrength(object):
             var_set += ['c_star']
         for var in var_set:
             scores = []
+            mod = eval(model[1]) #Initialize model
             for train_idx, test_idx in self.kfold():
                 if var == fvar:
                     x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
                     xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                    mod.set_params(**self.smodel_params[model[0]])
                 elif var == 'c_star':
                     x = self.x.iloc[train_idx][c_vars]
                     xt = self.x.iloc[test_idx][c_vars]
+                    mod.set_params(**self.fmodel_params[model[0]])
                 else:
                     x = self.x.iloc[train_idx][[fvar, var]]
                     xt = self.x.iloc[test_idx][[fvar, var]]
-                model[1].fit(x, self.yb[train_idx])
-                y_pred = model[1].predict(xt)
+                    mod.set_params(**self.smodel_params[model[0]])
+                mod.fit(x, self.yb[train_idx])
+                y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
             self.dual_scores[fvar][model[0]][var].append(np.mean(scores))
 
@@ -200,13 +221,15 @@ class PredictTieStrength(object):
     def eval_full(self, model):
         scores = []
         feat_imports_k = []
+        mod = eval(model[1])
+        mod.set_params(**self.fmodel_params[model[0]])
         for train_idx, test_idx in self.kfold():
             x = self.x.iloc[train_idx]
             xt = self.x.iloc[test_idx]
-            model[1].fit(x, self.yb[train_idx])
-            y_pred = model[1].predict(xt)
+            mod.fit(x, self.yb[train_idx])
+            y_pred = mod.predict(xt)
             scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
-            self.get_feat_imports(model, feat_imports_k)
+            self.get_feat_imports(model[0], mod, feat_imports_k)
         score = np.mean(scores)
         feat_imports = np.mean(feat_imports_k, 0)
         self.full_scores[model[0]].append(score)
@@ -215,11 +238,11 @@ class PredictTieStrength(object):
         self.save_scores(self.full_scores[model[0]], 'full_scores.{}.p'.format(model[0]))
         self.save_scores(self.feature_imp[model[0]], 'feature_imp.{}.p'.format(model[0]))
 
-    def get_feat_imports(self, model, feat_imports):
-        if model[0] in ['LR', 'SVC']:
-            feat_imports.append(model[1].coef_[0])
-        elif model[0] in ['RF', 'ABC']:
-            feat_imports.append(model[1].feature_importances_)
+    def get_feat_imports(self, model, mod, feat_imports):
+        if model in ['LR', 'SVC']:
+            feat_imports.append(mod.coef_[0])
+        elif model in ['RF', 'ABC']:
+            feat_imports.append(mod.feature_importances_)
         else:
             feat_imports.append([])
 
