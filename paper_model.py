@@ -165,19 +165,32 @@ class PredictTieStrength(object):
         return skf.split(self.x, self.yb)
 
     def eval_single_var(self, model):
-        assert not self.c_star, "c_star not implemented for single_var"
-        # NOTE: so far c_star is not included here, but in full model
-        for var in self.x.columns:
+        var_set = list(self.x.columns)
+        if self.c_star:
+            from re import match
+            c_vars = [c for c in var_set if match('c\d', c)]
+            var_set += ['c_star']
+        for var in var_set:
             scores = []
             for train_idx, test_idx in self.kfold():
-                x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
-                xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
-                if self.ranked:
-                    rank_x = lambda x: rankdata(x) / x.shape[0]
-                    x = rank_x(x).reshape(-1, 1)
-                    xt = rank_x(xt).reshape(-1, 1)
-                mod = eval(model[1])
-                mod.set_params(**self.smodel_params[model[0]])
+                if var == 'c_star':
+                    mod = eval(model[1])
+                    mod.set_params(**self.fmodel_params[model[0]])
+                    x = self.x.iloc[train_idx][c_vars]
+                    xt = self.x.iloc[test_idx][c_vars]
+                    if self.ranked:
+                        rank_x = lambda x: rankdata(x) / (x.shape[0] + 0.)
+                        x = x.apply(rank_x, 0)
+                        xt = xt.apply(rank_x, 0)
+                else:
+                    mod = eval(model[1])
+                    mod.set_params(**self.smodel_params[model[0]])
+                    x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
+                    xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                    if self.ranked:
+                        rank_x = lambda x: rankdata(x) / x.shape[0]
+                        x = rank_x(x).reshape(-1, 1)
+                        xt = rank_x(xt).reshape(-1, 1)
                 mod.fit(x, self.yb[train_idx])
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
@@ -190,6 +203,7 @@ class PredictTieStrength(object):
         """
 
         var_set = list(self.x.columns)
+        rank_x = lambda x: rankdata(x) / (x.shape[0] + 0.)
         if self.c_star:
             from re import match
             c_vars = [fvar] + [c for c in var_set if match('c\d', c)]
@@ -202,14 +216,23 @@ class PredictTieStrength(object):
                     x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
                     xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
                     mod.set_params(**self.smodel_params[model[0]])
+                    if self.ranked:
+                        x = rank_x(x).reshape(-1, 1)
+                        xt = rank_x(xt).reshape(-1, 1)
                 elif var == 'c_star':
                     x = self.x.iloc[train_idx][c_vars]
                     xt = self.x.iloc[test_idx][c_vars]
                     mod.set_params(**self.fmodel_params[model[0]])
+                    if self.ranked:
+                        x = x.apply(rank_x, 0)
+                        xt = xt.apply(rank_x, 0)
                 else:
                     x = self.x.iloc[train_idx][[fvar, var]]
                     xt = self.x.iloc[test_idx][[fvar, var]]
                     mod.set_params(**self.smodel_params[model[0]])
+                    if self.ranked:
+                        x = x.apply(rank_x, 0)
+                        xt = xt.apply(rank_x, 0)
                 mod.fit(x, self.yb[train_idx])
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
@@ -226,6 +249,10 @@ class PredictTieStrength(object):
         for train_idx, test_idx in self.kfold():
             x = self.x.iloc[train_idx]
             xt = self.x.iloc[test_idx]
+            if self.ranked:
+                rank_x = lambda x: rankdata(x) / (x.shape[0] + 0.)
+                x = x.apply(rank_x, 0)
+                xt = xt.apply(rank_x, 0)
             mod.fit(x, self.yb[train_idx])
             y_pred = mod.predict(xt)
             scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
