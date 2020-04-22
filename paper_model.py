@@ -92,12 +92,12 @@ class PredictTieStrength(object):
     def _init_model_params(self):
         smodel_params = {'LR': {'C': 1, 'fit_intercept': True},
                 'QDA': {},
-                'RF': {'criterion': 'entropy', 'n_estimators' : 20},
+                'RF': {'criterion': 'entropy', 'n_estimators' : 25},
                 'ABC': {}}
 
         fmodel_params = {'LR': {'C': .5, 'fit_intercept': False},
-                'QDA': {'reg_param' : .25},
-                'RF': {'max_features': 'log2', 'criterion': 'entropy', 'n_estimators': 50},
+                'QDA': {'reg_param' : .75},
+                'RF': {'max_features': 'sqrt', 'criterion': 'entropy', 'n_estimators': 75},
                 'ABC': {}}
 
         self.smodel_params = smodel_params
@@ -179,18 +179,21 @@ class PredictTieStrength(object):
                     x = self.x.iloc[train_idx][c_vars]
                     xt = self.x.iloc[test_idx][c_vars]
                     if self.ranked:
-                        rank_x = lambda x: rankdata(x) / (x.shape[0] + 0.)
+                        rank_x = lambda x: rankdata(x, method='min') / (x.shape[0] + 0.)
                         x = x.apply(rank_x, 0)
                         xt = xt.apply(rank_x, 0)
                 else:
                     mod = eval(model[1])
                     mod.set_params(**self.smodel_params[model[0]])
-                    x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
-                    xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
-                    if self.ranked:
-                        rank_x = lambda x: rankdata(x) / x.shape[0]
-                        x = rank_x(x).reshape(-1, 1)
-                        xt = rank_x(xt).reshape(-1, 1)
+                    if not self.ranked:
+                        x = self.x.iloc[train_idx][var].values.reshape(-1, 1)
+                        xt = self.x.iloc[test_idx][var].values.reshape(-1, 1)
+                    else:
+                        rank_x = lambda x: rankdata(x, 'min') / (x.shape[0] + 0.)
+                        x = rank_x(self.x.iloc[train_idx][var].values).reshape(-1, 1)
+                        xt = rank_x(self.x.iloc[test_idx][var].values).reshape(-1, 1)
+                if var.startswith('c'):
+                    import pdb; pdb.set_trace()
                 mod.fit(x, self.yb[train_idx])
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
@@ -203,7 +206,7 @@ class PredictTieStrength(object):
         """
 
         var_set = list(self.x.columns)
-        rank_x = lambda x: rankdata(x) / (x.shape[0] + 0.)
+        rank_x = lambda x: rankdata(x, 'min') / (x.shape[0] + 0.)
         if self.c_star:
             from re import match
             c_vars = [fvar] + [c for c in var_set if match('c\d', c)]
@@ -250,7 +253,7 @@ class PredictTieStrength(object):
             x = self.x.iloc[train_idx]
             xt = self.x.iloc[test_idx]
             if self.ranked:
-                rank_x = lambda x: rankdata(x) / (x.shape[0] + 0.)
+                rank_x = lambda x: rankdata(x, 'min') / (x.shape[0] + 0.)
                 x = x.apply(rank_x, 0)
                 xt = xt.apply(rank_x, 0)
             mod.fit(x, self.yb[train_idx])
