@@ -192,8 +192,6 @@ class PredictTieStrength(object):
                         rank_x = lambda x: rankdata(x, 'min') / (x.shape[0] + 0.)
                         x = rank_x(self.x.iloc[train_idx][var].values).reshape(-1, 1)
                         xt = rank_x(self.x.iloc[test_idx][var].values).reshape(-1, 1)
-                if var.startswith('c'):
-                    import pdb; pdb.set_trace()
                 mod.fit(x, self.yb[train_idx])
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
