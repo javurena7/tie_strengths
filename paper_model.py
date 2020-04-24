@@ -92,12 +92,12 @@ class PredictTieStrength(object):
     def _init_model_params(self):
         smodel_params = {'LR': {'C': 1, 'fit_intercept': True},
                 'QDA': {},
-                'RF': {'criterion': 'entropy', 'n_estimators' : 25},
+                'RF': {'criterion': 'gini', 'n_estimators' : 20},
                 'ABC': {}}
 
-        fmodel_params = {'LR': {'C': .5, 'fit_intercept': False},
+        fmodel_params = {'LR': {'C': .5, 'fit_intercept': True},
                 'QDA': {'reg_param' : .75},
-                'RF': {'max_features': 'sqrt', 'criterion': 'entropy', 'n_estimators': 75},
+                'RF': {'max_features': 'sqrt', 'criterion': 'gini', 'n_estimators': 55},
                 'ABC': {}}
 
         self.smodel_params = smodel_params
