@@ -49,13 +49,14 @@ class PredictTieStrength(object):
                 'ovrl': r'$O$',
                 'avg_len': r'$\hat{l}$',
                 'len': r'$l$',
-                'w_hrs': r'$w_h$',
-                'w_day': r'$w_d$'}
+                'w_hrs': r'$a_h$',
+                'w_day': r'$a_d$'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
 
         if data_path:
             self.read_tables(data_path, y_var, remove, cluster_only)
             self.single_scores = self._init_scores()
+            self.boot_scores = self._init_scores()
         else:
             self.variables = []
             self.x, self.y, self.scores = None, None, {}
@@ -172,6 +173,8 @@ class PredictTieStrength(object):
             var_set += ['c_star']
         for var in var_set:
             scores = []
+            y_preds = []
+            yb = []
             for train_idx, test_idx in self.kfold():
                 if var == 'c_star':
                     mod = eval(model[1])
@@ -195,8 +198,31 @@ class PredictTieStrength(object):
                 mod.fit(x, self.yb[train_idx])
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
+                yb = np.concatenate((yb, self.yb[test_idx].values)) if len(yb) > 0 else self.yb[test_idx].values
+                y_preds = np.concatenate((y_preds, y_pred)) if len(y_preds) > 0 else y_pred
+            #self.single_scores[model[0]][var].append(scores)
             self.single_scores[model[0]][var].append(np.mean(scores))
+            self.boot_scores[model[0]][var].append(self.bootstrap_ci(yb, y_preds))
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
+        self.save_scores(self.boot_scores[model[0]], 'boot_scores.{}.p'.format(model[0]))
+
+
+
+    def bootstrap_ci(self, yb, y_preds, n_samp=100):
+        n = len(y_preds)
+        mscores = []
+        mean_score = matthews_corrcoef(yb, y_preds)
+        for i in range(n_samp):
+            samp_idx = np.random.choice(n, n, replace=True)
+            mscores.append(matthews_corrcoef(yb[samp_idx], y_preds[samp_idx]))
+        mscores = sorted(mscores)
+        min_idx = int(n_samp * .05)
+        max_idx = int(n_samp * .95)
+        var = np.var(mscores)
+        return (mscores[min_idx], mscores[max_idx], var)
+
+
+
 
     def eval_dual_var(self, model, fvar):
         """
@@ -306,17 +332,25 @@ class PredictTieStrength(object):
         dual_files = [f for f in listdir(self.save_prefix) if 'dual_scores' in f] if dual else []
         full_files = [f for f in listdir(self.save_prefix) if 'full_scores' in f] if full else []
         imps_files = [f for f in listdir(self.save_prefix) if 'feature_imp' in f] if full else []
+        boot_files = [f for f in listdir(self.save_prefix) if 'boot_scores' in f] if single else []
 
         self.single_scores = {}
         for sf in single_files:
             model = sf.split('.')[1]
             self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
+
+        self.boot_scores = {}
+        for bf in boot_files:
+            model = bf.split('.')[1]
+            self.boot_scores[model] = pickle.load(open(self.save_prefix + bf, 'rb'))
+
         self.dual_scores = {}
         for df in dual_files:
             fvar, model = df.split('.')[1:3]
-            if self.dual_scores.get(fvar, 0) == 0:
-                self.dual_scores[fvar] = {}
-            self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
+            if model == 'ABC':
+                if self.dual_scores.get(fvar, 0) == 0:
+                    self.dual_scores[fvar] = {}
+                self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
 
         self.feature_imp = {}
         self.full_scores = {}
@@ -328,19 +362,77 @@ class PredictTieStrength(object):
             self.feature_imp[model] = pickle.load(open(self.save_prefix + imf, 'rb'))
 
 
+    def model_variance(self, mat, dms):
+        """
+        Obtain varaince induced by model
+        """
+        #TODO: this only contains model variance, instead add alpha and sampling variance
+        ds = sum(dms)
+        model_weights = [dm / ds for dm in dms]
+        alpha_avgs = sum([weight.reshape(-1, 1) * model for weight, model in zip(model_weights, mat)]) #Average performance per variable and alpha
+
+        model_avgs = [model.mean(1) for model in mat] #Get average perfromance over all alphas
+        total_avg = sum([weight * avg for weight, avg in zip(model_weights, model_avgs)])
+        model_var = sum([weight * (model_avg - total_avg)**2 for weight, model_avg in \
+                zip(model_weights, model_avgs)]) #Model variance over all alphas
+        return alpha_avgs, model_var
+
+
     def merge_scores(self):
         mat = []
+        mat_var = []
         ds = np.zeros(len(self.variables))
-        for scores in self.single_scores.values():
-            colnames = scores.keys()
-            d = pd.DataFrame(scores).as_matrix()
-            dm = d.mean(0)
-            mat.append(np.array([dmi * di for dmi, di in zip(dm, d.T)]))
-            ds += dm
-        #For each variable, we get the weighted average of the performance
-        if mat:
-            mat = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
-            self.average_score = pd.DataFrame(mat, columns=colnames)
+        dms = []
+        model_xs = []
+        if self.boot_scores:
+            models = ['ABC', 'RF', 'LR', 'QDA']
+            for model in models:
+                scores = self.single_scores[model]
+                boot_scores = self.boot_scores[model]
+
+                colnames = scores.keys()
+                d = pd.DataFrame(scores).as_matrix()
+                dm = d.mean(0)
+                #mat.append(np.array([dmi * di for dmi, di in zip(dm, d.T)]))
+                mat.append(d.T)
+
+                #boot_vars = OrderedDict((k, [vi[2] for vi in v]) for k, v in boot_scores.items())
+                #d_boot = pd.DataFrame(boot_vars).as_matrix()
+                ## Variance induced by alphas
+                #mat_var = [np.array([dmi * dmi * di for dmi, di in zip(dm, d_boot.T)])]
+
+                dms.append(dm)
+                ds += dm
+
+            avg_score, variance = self.model_variance(mat, dms)
+            self.average_score = pd.DataFrame(avg_score.T, columns=colnames)
+            self.boot_vars = pd.Series(variance, index=colnames)
+
+            #For each variable, we get the weighted average of the performance
+            #if mat:
+                #average_score = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
+                # Variance induced by models
+                #model_avg = average_score.mean(0) #sum over alphas
+
+                #model_var = [(var_mod - var_avg)**2 for var_mod, var_avg in zip()]
+
+                #mat_var = np.array([mi / (dsi)**2 for mi, dsi in zip(sum(mat_var), ds)]).T
+
+                #self.average_score = pd.DataFrame(average_score, columns=colnames)
+                #model_variance = self.average_score.mean()
+                #self.boot_vars = pd.DataFrame(mat_var, columns=colnames)
+
+        else:
+            for scores in self.single_scores.values():
+                colnames = scores.keys()
+                d = pd.DataFrame(scores).as_matrix()
+                dm = d.mean(0)
+                mat.append(np.array([dmi * di for dmi, di in zip(dm, d.T)]))
+                ds += dm
+            #For each variable, we get the weighted average of the performance
+            if mat:
+                mat = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
+                self.average_score = pd.DataFrame(mat, columns=colnames)
 
         self.average_dual_score = {}
         for var, var_models in self.dual_scores.items():
@@ -354,7 +446,6 @@ class PredictTieStrength(object):
                 ds += dm
             mat = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
             self.average_dual_score[var] = pd.DataFrame(mat, columns=colnames)
-
 
         if self.feature_imp:
             colnames = self.feature_imp['vars']
@@ -436,7 +527,7 @@ class PredictTieStrength(object):
             g.axes.set_ylabel(r'$O_{\alpha}$')
         elif self.y.name == 'ov_mean':
             g.axes.set_ylabel(r'$\hat{O}^t_{\alpha}$')
-        g.axes.set_title(title, loc='left')
+        g.axes.set_title(title, loc='center')
         g.get_figure().tight_layout()
 
         name = self.save_prefix + 'singlevar_{}.pdf'.format(case)
@@ -444,11 +535,11 @@ class PredictTieStrength(object):
         plt.clf()
         plt.close()
 
-    def plot_dual_var(self, title=''):
+    def plot_dual_var(self, title=r'(ii)'):
         plt.close('all')
         latexify(5.2, 2.2, 1, usetex=True)
         index = self.average_score.mean().sort_values().index
-
+        markers = {'w_day': 'x', 'w_hrs': '+', 'bt_n': '1', 'w': 'v', 'x': '.'}
         fig, ax = plt.subplots()
         name = r'${}$'
         #if 'w_hrs' in self.average_dual_score:
@@ -457,13 +548,23 @@ class PredictTieStrength(object):
             score = score.reindex_axis(index, axis=1)
             values = np.mean(score, 0)
             label = self.col_labels[var] #' #name.format(self.col_labels[var])
-            ax.scatter(range(len(values)), values, label=label, alpha=.5)
+            ax.scatter(range(len(values)), values, label=label, marker=markers[var], alpha=.5)
         else:
             df = self.average_score.copy()
             df = df.reindex_axis(index, axis=1)
             values = np.mean(df)
             label = r'$X$'
-            ax.scatter(range(len(values)), values, label=label, alpha=.5)
+            if self.boot_scores:
+                error = self.boot_vars.copy()
+
+                n_alpha = error.shape[0]
+                error = error.reindex(index)
+
+                error = 2 * np.sqrt(error)
+                ax.errorbar(range(len(values)), values, yerr=error, fmt='.', label=label,\
+                        marker=markers['x'], alpha=.5)
+            else:
+                ax.scatter(range(len(values)), values, label=label, marker=markers['x'], alpha=.5)
 
 
         xticks = [i + .1 for i in range(len(df.columns))]
@@ -472,7 +573,7 @@ class PredictTieStrength(object):
         ax.set_xticklabels(ticklabels, rotation=90)
         ax.set_ylabel(r'$MCC$')
         ax.legend(loc=0)
-        ax.set_title(title, loc='left')
+        ax.set_title(title, loc='center')
         name = self.save_prefix + 'doublevar.pdf'
         fig.tight_layout()
         fig.savefig(name)
@@ -501,8 +602,9 @@ class PredictTieStrength(object):
 
 
     def plot_all_single(self, sort_order='self'):
+        title = {'AVG': r'(i)', 'LR': r'(i)', 'QDA':'(ii)', 'RF':'(iii)', 'ABC':'(iv)'}
         for case in ['AVG'] + self.single_scores.keys():
-            self.plot_singlevar_mcc(case=case, sort_order=sort_order)
+            self.plot_singlevar_mcc(case=case, sort_order=sort_order, title=title[case])
 
     def plot_corrs(self):
         latexify(8, 3.75, 1, usetex=True)
