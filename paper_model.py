@@ -61,6 +61,7 @@ class PredictTieStrength(object):
             self.variables = []
             self.x, self.y, self.scores = None, None, {}
         self.dual_scores = {}
+        self.boot_dual_scores = {}
         self.alpha_step = alpha_step
         self.ranked = ranked
         self._init_full_scores()
@@ -84,6 +85,7 @@ class PredictTieStrength(object):
 
     def _init_dual_scores(self, fvar):
         self.dual_scores[fvar] = self._init_scores()
+        self.boot_dual_scores[fvar] = self._init_scores()
 
     def _init_full_scores(self):
         self.feature_imp = {kind[0]: [] for kind in self.models}
@@ -237,6 +239,8 @@ class PredictTieStrength(object):
             var_set += ['c_star']
         for var in var_set:
             scores = []
+            yb = []
+            y_preds = []
             mod = eval(model[1]) #Initialize model
             for train_idx, test_idx in self.kfold():
                 if var == fvar:
@@ -263,9 +267,14 @@ class PredictTieStrength(object):
                 mod.fit(x, self.yb[train_idx])
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
+                yb = np.concatenate((yb, self.yb[test_idx].values)) if len(yb) > 0 else self.yb[test_idx].values
+                y_preds = np.concatenate((y_preds, y_pred)) if len(y_preds) > 0 else y_pred
+            self.single_scores[model[0]][var].append(np.mean(scores))
+            self.boot_dual_scores[fvar][model[0]][var].append(self.bootstrap_ci(yb, y_preds))
             self.dual_scores[fvar][model[0]][var].append(np.mean(scores))
 
         self.save_scores(self.dual_scores[fvar][model[0]], 'dual_scores.{}.{}.p'.format(fvar, model[0]))
+        self.save_scores(self.boot_dual_scores[fvar][model[0]], 'boot_dual_scores.{}.p'.format(model[0]))
 
 
     def eval_full(self, model):
@@ -302,7 +311,6 @@ class PredictTieStrength(object):
 
 
     def run_alphas(self, fvars=[], single_var=True, full_vars=False):
-        # SO far c_star only implemented for dual_var
         for fvar in fvars:
             self._init_dual_scores(fvar)
 
@@ -378,6 +386,22 @@ class PredictTieStrength(object):
         return alpha_avgs, model_var
 
 
+    def model_highest(self, mat, dms):
+        """
+        Obtain the maximum MCC out of all models, and include the variance of the estimator
+        """
+        w = len(dms) + 0.
+        model_weights = [1 / w for dm in dms]
+        alpha_avgs = sum([weight.reshape(-1, 1) * model for weight, model in zip(model_weights, mat)]) #Average performance per variable and alpha
+
+        model_avgs = [model.mean(1) for model in mat] #Get average perfromance over all alphas
+        total_avg = sum([weight * avg for weight, avg in zip(model_weights, model_avgs)])
+        model_var = sum([weight * (model_avg - total_avg)**2 for weight, model_avg in \
+                zip(model_weights, model_avgs)]) #Model variance over all alphas
+        return alpha_avgs, model_var
+
+
+
     def merge_scores(self):
         mat = []
         mat_var = []
@@ -407,6 +431,8 @@ class PredictTieStrength(object):
             avg_score, variance = self.model_variance(mat, dms)
             self.average_score = pd.DataFrame(avg_score.T, columns=colnames)
             self.boot_vars = pd.Series(variance, index=colnames)
+            #CASE: test how max plot looks like
+            self.single_scores['MAX'] = pd.DataFrame(np.max(mat, 0).T, columns=colnames)
 
             #For each variable, we get the weighted average of the performance
             #if mat:
@@ -431,6 +457,7 @@ class PredictTieStrength(object):
                 ds += dm
             #For each variable, we get the weighted average of the performance
             if mat:
+                self.single_scores['MAX'] = pd.DataFrame(np.max(mat, 0).T, columns=colnames)
                 mat = np.array([mi / dsi for mi, dsi in zip(sum(mat), ds)]).T
                 self.average_score = pd.DataFrame(mat, columns=colnames)
 
@@ -497,6 +524,13 @@ class PredictTieStrength(object):
             df = self.average_score
             if sort_order in ['average', 'self']:
                 df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        elif case == 'MAX':
+            df = self.single_scores[case]
+            if sort_order == 'average':
+                df_a = self.average_score
+                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+            elif sort_order == 'self':
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
         else:
             if sort_order == 'average':
                 df_a = self.average_score
@@ -533,7 +567,7 @@ class PredictTieStrength(object):
         name = self.save_prefix + 'singlevar_{}.pdf'.format(case)
         g.get_figure().savefig(name)
         plt.clf()
-        plt.close()
+        #plt.close('all')
 
     def plot_dual_var(self, title=r'(ii)'):
         plt.close('all')
