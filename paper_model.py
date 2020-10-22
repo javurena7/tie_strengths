@@ -18,6 +18,7 @@ from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.gaussian_process.kernels import RBF
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.neural_network import MLPClassifier
+from sklearn.utils import resample
 
 
 class PredictTieStrength(object):
@@ -120,7 +121,7 @@ class PredictTieStrength(object):
             try:
                 df_wc = pd.read_csv(path + 'clustered_df_paper.txt', sep=' ', index_col=['0', '1'])
                 df = pd.concat([df, df_wc], axis=1)
-            else:
+            except:
                 pass
             for col in remove:
                 if col in df.columns:
