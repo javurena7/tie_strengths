@@ -2,7 +2,7 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np; from numpy import inf
 import pandas as pd
 from scipy.stats import rankdata, spearmanr
-from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import matthews_corrcoef, roc_auc_score, f1_score
 import pickle
 from os import listdir
 from collections import OrderedDict
@@ -59,6 +59,8 @@ class PredictTieStrength(object):
             self.read_tables(data_path, y_var, remove, cluster_only, df_name)
             self.single_scores = self._init_scores()
             self.boot_scores = self._init_scores()
+            self.auc_scores = self._init_scores()
+            self.f1_scores = self._init_scores()
         else:
             self.variables = []
             self.x, self.y, self.scores = None, None, {}
@@ -127,9 +129,9 @@ class PredictTieStrength(object):
                 if col in df.columns:
                     df.drop(col, axis=1, inplace=True)
 
-        if y_var == 'ovrl':
+        if y_var == 'ovrl' and 'ov_mean' in df.columns:
             df.drop('ov_mean', axis=1, inplace=True)
-        elif y_var == 'ov_mean':
+        elif y_var == 'ov_mean' and 'ovrl' in df.columns:
             df.drop('ovrl', axis=1, inplace=True)
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df.dropna(inplace=True)
@@ -202,9 +204,10 @@ class PredictTieStrength(object):
             c_vars = [c for c in var_set if match('c\d', c)]
             var_set += ['c_star']
         for var in var_set:
-            scores = []
+            scores, aucs, f1s = [], [], []
             y_preds = []
             yb = []
+
             for train_idx, test_idx in self.kfold():
                 if var == 'c_star':
                     mod = eval(model[1])
@@ -231,14 +234,22 @@ class PredictTieStrength(object):
                     y_train = self.yb[train_idx]
                 mod.fit(x, y_train)
                 y_pred = mod.predict(xt)
+                y_prob = mod.predict_proba(xt)[:, 0]
+
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
                 yb = np.concatenate((yb, self.yb[test_idx].values)) if len(yb) > 0 else self.yb[test_idx].values
                 y_preds = np.concatenate((y_preds, y_pred)) if len(y_preds) > 0 else y_pred
+                aucs.append(roc_auc_score(self.yb[test_idx], y_prob))
+                f1s.append(f1_score(self.yb[test_idx], y_pred))
             #self.single_scores[model[0]][var].append(scores)
             self.single_scores[model[0]][var].append(np.mean(scores))
             self.boot_scores[model[0]][var].append(self.bootstrap_ci(yb, y_preds))
+            self.auc_scores[model[0]][var].append(np.mean(aucs))
+            self.f1_scores[model[0]][var].append(np.mean(f1s))
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
         self.save_scores(self.boot_scores[model[0]], 'boot_scores.{}.p'.format(model[0]))
+        self.save_scores(self.auc_scores[model[0]], 'auc_scores.{}.p'.format(model[0]))
+        self.save_scores(self.f1_scores[model[0]], 'f1_scores.{}.p'.format(model[0]))
 
 
 
@@ -303,12 +314,15 @@ class PredictTieStrength(object):
                     y_train = self.yb[train_idx]
                 mod.fit(x, y_train)
                 y_pred = mod.predict(xt)
+                #y_prob = mod.predict_proba(xt)
+
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
                 yb = np.concatenate((yb, self.yb[test_idx].values)) if len(yb) > 0 else self.yb[test_idx].values
                 y_preds = np.concatenate((y_preds, y_pred)) if len(y_preds) > 0 else y_pred
             self.single_scores[model[0]][var].append(np.mean(scores))
             self.boot_dual_scores[fvar][model[0]][var].append(self.bootstrap_ci(yb, y_preds))
             self.dual_scores[fvar][model[0]][var].append(np.mean(scores))
+            #self.dual_probas[fvar][model[0]][var].append(np.mean(scores))
 
         self.save_scores(self.dual_scores[fvar][model[0]], 'dual_scores.{}.{}.p'.format(fvar, model[0]))
         self.save_scores(self.boot_dual_scores[fvar][model[0]], 'boot_dual_scores.{}.p'.format(model[0]))
@@ -385,6 +399,8 @@ class PredictTieStrength(object):
         imps_files = [f for f in listdir(self.save_prefix) if 'feature_imp' in f] if full else []
         boot_files = [f for f in listdir(self.save_prefix) if 'boot_scores' in f] if single else []
         boot_dual_files = [f for f in listdir(self.save_prefix) if 'boot_dual' in f] if dual else []
+        auc_files = [f for f in listdir(self.save_prefix) if 'auc_scores' in f] if single else []
+        f1_files = [f for f in listdir(self.save_prefix) if 'f1_scores' in f] if single else []
 
         self.single_scores = {}
         for sf in single_files:
@@ -395,6 +411,16 @@ class PredictTieStrength(object):
         for bf in boot_files:
             model = bf.split('.')[1]
             self.boot_scores[model] = pickle.load(open(self.save_prefix + bf, 'rb'))
+
+        self.auc_scores = {}
+        for af in auc_files:
+            model = af.split('.')[1]
+            self.auc_scores[model] = pickle.load(open(self.save_prefix + af, 'rb'))
+
+        self.f1_scores = {}
+        for ff in f1_files:
+            model = ff.split('.')[1]
+            self.f1_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'))
 
         self.dual_scores = {}
         for df in dual_files:
@@ -577,7 +603,7 @@ class PredictTieStrength(object):
             max_score = np.max(mat, 0)
             self.average_dual_score[var] = pd.DataFrame(max_score, columns=colnames)
 
-        if self.feature_imp:
+        if self.feature_imp.get('vars', None):
             colnames = self.feature_imp['vars']
             self.imp_df = {}
         for model, scores in self.feature_imp.items():
