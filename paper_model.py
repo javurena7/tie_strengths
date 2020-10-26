@@ -258,7 +258,7 @@ class PredictTieStrength(object):
 
 
 
-    def eval_dual_var(self, model, fvar):
+    def eval_dual_var(self, model, fvar, resampled=True):
         """
         If c_star, calculate a model with all clusters
         """
@@ -296,7 +296,12 @@ class PredictTieStrength(object):
                     if self.ranked:
                         x = x.apply(rank_x, 0)
                         xt = xt.apply(rank_x, 0)
-                mod.fit(x, self.yb[train_idx])
+
+                if resampled:
+                    x, y_train = self.resample_data(x, train_idx)
+                else:
+                    y_train = self.yb[train_idx]
+                mod.fit(x, y_train)
                 y_pred = mod.predict(xt)
                 scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
                 yb = np.concatenate((yb, self.yb[test_idx].values)) if len(yb) > 0 else self.yb[test_idx].values
@@ -309,7 +314,7 @@ class PredictTieStrength(object):
         self.save_scores(self.boot_dual_scores[fvar][model[0]], 'boot_dual_scores.{}.p'.format(model[0]))
 
 
-    def eval_full(self, model):
+    def eval_full(self, model, resampled=True):
         scores = []
         feat_imports_k = []
         mod = eval(model[1])
@@ -321,7 +326,11 @@ class PredictTieStrength(object):
                 rank_x = lambda x: rankdata(x, 'min') / (x.shape[0] + 0.)
                 x = x.apply(rank_x, 0)
                 xt = xt.apply(rank_x, 0)
-            mod.fit(x, self.yb[train_idx])
+            if resampled:
+                x, y_train = self.resample_data(x, train_idx)
+            else:
+                y_train = self.yb[train_idx]
+            mod.fit(x, y_train)
             y_pred = mod.predict(xt)
             scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
             self.get_feat_imports(model[0], mod, feat_imports_k)
@@ -369,6 +378,7 @@ class PredictTieStrength(object):
 
 
     def load_scores(self, single=False, dual=False, full=False):
+        #NOTE: if the pickles were created with python2, they must be read w python2
         single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f] if single else []
         dual_files = [f for f in listdir(self.save_prefix) if f.startswith('dual_scores')] if dual else []
         full_files = [f for f in listdir(self.save_prefix) if 'full_scores' in f] if full else []
