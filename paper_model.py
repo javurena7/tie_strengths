@@ -7,7 +7,7 @@ import pickle
 from os import listdir
 from collections import OrderedDict
 from itertools import product
-import matplotlib.pyplot as plt #; plt.ion()
+import matplotlib.pyplot as plt ; plt.ion()
 import seaborn as sns
 
 from latexify import *
@@ -267,8 +267,6 @@ class PredictTieStrength(object):
         return (mscores[min_idx], mscores[max_idx], var)
 
 
-
-
     def eval_dual_var(self, model, fvar, resampled=True):
         """
         If c_star, calculate a model with all clusters
@@ -388,7 +386,6 @@ class PredictTieStrength(object):
     def save_scores(self, obj, name):
         with open(self.save_prefix + name, 'wb') as opn:
             pickle.dump(obj, opn)
-
 
 
     def load_scores(self, single=False, dual=False, full=False):
@@ -644,6 +641,11 @@ class PredictTieStrength(object):
         plt.clf()
         plt.close()
 
+    def load_debug(self):
+        self.get_alphas()
+        self.load_scores(single=True)
+        self.merge_scores()
+        self.plot_singlevar_mcc()
 
     def plot_singlevar_mcc(self, case='AVG', sort_order='average', title=''):
         plt.close('all')
@@ -671,8 +673,33 @@ class PredictTieStrength(object):
             else:
                 df = pd.DataFrame(self.single_scores[case])
 
+        fig, axs = plt.subplots(2, 2, gridspec_kw={'height_ratios': [1, 3], 'width_ratios': [.95, .03]}) #Generate four axes ([[baseline, empty], [heatmap, cbar]])
+        #cbar_ax = fig.add_axes([.905, .3, .05, .3])
 
-        g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'})
+        # Plot baseline violin plot
+        df_baseline = df.div(df.w, axis=0)
+        axs[0,0].axhline(0, linestyle='-', alpha=1, color='grey')
+        for loc in ['top', 'right', 'left', 'bottom']:
+            axs[0,0].spines[loc].set_visible(False)
+        g0 = sns.violinplot(data=df_baseline, color='salmon', orient='v', ax=axs[0,0], linewidth=0, inner=None)
+        axs[0,0].axhline(1, linestyle=':', alpha=.5, color='red')
+        g0.vlines(np.arange(.5, df.shape[1] + .5), *g0.get_ylim(), color='grey', alpha=.3)
+        g0.set_xticklabels([])
+        g0.set_xticks([])
+        g0.set_xlim([-.5, df.shape[1]-.5])
+        g0.set_ylabel(r'$\frac{MCC_*}{MCC_w}$')
+        # Add "1" to array
+        yticks = list(g0.get_yticks()) + [1.]
+        g0.set_yticks(sorted(yticks)[1:-1])
+
+        axs[0, 1].axis('off') #Erase extra axis
+
+        # Plot heatmap
+
+        g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'}, ax=axs[1,0], cbar_ax=axs[1, 1])
+        g.invert_yaxis()
+
+        # SPECIAL delta_t case
         if 'delta_t' in self.data_path:
             basis = [0, 12 * 3600, 60, 1800]
             xticks = [i + .5 for i, j in enumerate(df.columns) if int(j) % (3600 * 24) in basis]
@@ -680,22 +707,28 @@ class PredictTieStrength(object):
         else:
             xticks = [i + .5 for i in range(len(df.columns))]
             ticklabels = [self.col_labels[col] for col in df]
+
+
         g.axes.set_xticks(xticks)
         g.axes.set_xticklabels(ticklabels, rotation=90)
-        alphas = [round(a, 3) for a in self.alphas]
+        percentiles = np.arange(0, 100, 5)
 
-        g.axes.set_yticks(np.arange(.5, len(alphas) + .5, 3))
-        g.axes.set_yticklabels(alphas[0:len(alphas):3], rotation=0)
+        g.axes.set_yticks(np.arange(.5, len(percentiles) + .5, 3))
+        g.axes.set_yticklabels(percentiles[0:len(percentiles):3], rotation=0)
+        g.vlines(range(df.shape[1] + 1), *g.get_ylim(), color='grey', alpha=.3)
         if self.y.name == 'ovrl':
-            g.axes.set_ylabel(r'$O_{\alpha}$')
+            g.axes.set_ylabel('Overlap Percentile \n' + r'$\eta\left(O\right)$')
         elif self.y.name == 'ov_mean':
-            g.axes.set_ylabel(r'$\hat{O}^t_{\alpha}$')
+            g.axes.set_ylabel('Overlap Percentile \n' + r'$\eta\left(\hat{O}^t\right)$')
         g.axes.set_title(title, loc='center')
-        g.get_figure().tight_layout()
 
-        name = self.save_prefix + 'singlevar_{}.pdf'.format(case)
+        name = self.save_prefix + 'singlevar_baseline_{}.pdf'.format(case)
+
+        g.get_figure().tight_layout()
+        plt.subplots_adjust(hspace=.2)
         g.get_figure().savefig(name)
         plt.clf()
+
         #plt.close('all')
 
     def plot_dual_var(self, title=r'(ii)'):
