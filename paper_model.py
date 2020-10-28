@@ -19,6 +19,7 @@ from sklearn.gaussian_process.kernels import RBF
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.neural_network import MLPClassifier
 from sklearn.utils import resample
+from sklearn.inspection import partial_dependence
 
 
 class PredictTieStrength(object):
@@ -61,6 +62,7 @@ class PredictTieStrength(object):
             self.boot_scores = self._init_scores()
             self.auc_scores = self._init_scores()
             self.f1_scores = self._init_scores()
+            self.partial_dep = self._init_scores()
         else:
             self.variables = []
             self.x, self.y, self.scores = None, None, {}
@@ -178,7 +180,7 @@ class PredictTieStrength(object):
         return skf.split(self.x, self.yb)
 
     def resample_data(self, x, train_idx):
-        y = self.yb[train_idx]
+        y = self.yb.iloc[train_idx]
 
         y_pos = y[y == 1]
         y_neg = y[y == 0]
@@ -197,7 +199,8 @@ class PredictTieStrength(object):
 
         return x_new, y_new
 
-    def eval_single_var(self, model, resampled=True):
+    def eval_single_var(self, model, resampled=False):
+        #Note: resampled works better with python2
         var_set = list(self.x.columns)
         if self.c_star:
             from re import match
@@ -207,6 +210,7 @@ class PredictTieStrength(object):
             scores, aucs, f1s = [], [], []
             y_preds = []
             yb = []
+            pdep = None
 
             for train_idx, test_idx in self.kfold():
                 if var == 'c_star':
@@ -231,26 +235,29 @@ class PredictTieStrength(object):
                 if resampled:
                     x, y_train = self.resample_data(x, train_idx)
                 else:
-                    y_train = self.yb[train_idx]
+                    y_train = self.yb.iloc[train_idx]
                 mod.fit(x, y_train)
                 y_pred = mod.predict(xt)
                 y_prob = mod.predict_proba(xt)[:, 0]
+                if pdep is None:
+                    pdep = partial_dependence(mod, x, [0])
 
-                scores.append(matthews_corrcoef(self.yb[test_idx], y_pred))
-                yb = np.concatenate((yb, self.yb[test_idx].values)) if len(yb) > 0 else self.yb[test_idx].values
+                scores.append(matthews_corrcoef(self.yb.iloc[test_idx], y_pred))
+                yb = np.concatenate((yb, self.yb.iloc[test_idx].values)) if len(yb) > 0 else self.yb.iloc[test_idx].values
                 y_preds = np.concatenate((y_preds, y_pred)) if len(y_preds) > 0 else y_pred
-                aucs.append(roc_auc_score(self.yb[test_idx], y_prob))
-                f1s.append(f1_score(self.yb[test_idx], y_pred))
-            #self.single_scores[model[0]][var].append(scores)
+                aucs.append(roc_auc_score(self.yb.iloc[test_idx], y_prob))
+                f1s.append(f1_score(self.yb.iloc[test_idx], y_pred))
+
             self.single_scores[model[0]][var].append(np.mean(scores))
             self.boot_scores[model[0]][var].append(self.bootstrap_ci(yb, y_preds))
             self.auc_scores[model[0]][var].append(np.mean(aucs))
             self.f1_scores[model[0]][var].append(np.mean(f1s))
+            self.partial_dep[model[0]][var].append(pdep)
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
         self.save_scores(self.boot_scores[model[0]], 'boot_scores.{}.p'.format(model[0]))
         self.save_scores(self.auc_scores[model[0]], 'auc_scores.{}.p'.format(model[0]))
         self.save_scores(self.f1_scores[model[0]], 'f1_scores.{}.p'.format(model[0]))
-
+        self.save_scores(self.partial_dep[model[0]], 'part_dep.{}.p'.format(model[0]))
 
 
     def bootstrap_ci(self, yb, y_preds, n_samp=100):
@@ -540,7 +547,7 @@ class PredictTieStrength(object):
 
     def get_variance(self, boot_score):
         var_dict = OrderedDict((k, [vi[2] for vi in v]) for k, v in boot_score.items())
-        var_mat = pd.DataFrame(var_dict).as_matrix()
+        var_mat = pd.DataFrame(var_dict).values
         return var_mat
 
 
@@ -556,7 +563,7 @@ class PredictTieStrength(object):
         for model in models:
             scores = self.single_scores[model]
             colnames = scores.keys()
-            scores = pd.DataFrame(scores).as_matrix()
+            scores = pd.DataFrame(scores).values
             mat.append(scores)
             var_mat = self.get_variance(self.boot_scores[model])
             boot_scores.append(var_mat)
@@ -654,22 +661,22 @@ class PredictTieStrength(object):
         if case == 'AVG':
             df = self.average_score
             if sort_order in ['average', 'self']:
-                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+                df = df.reindex(df.mean().sort_values().index, axis=1)
         elif case == 'MAX':
             df = self.single_scores[case]
             if sort_order == 'average':
                 df_a = self.average_score
-                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+                df = df.reindex(df_a.mean().sort_values().index, axis=1)
             elif sort_order == 'self':
-                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+                df = df.reindex(df.mean().sort_values().index, axis=1)
         else:
             if sort_order == 'average':
                 df_a = self.average_score
                 df = pd.DataFrame(self.single_scores[case])
-                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+                df = df.reindex(df_a.mean().sort_values().index, axis=1)
             elif sort_order == 'self':
                 df = pd.DataFrame(self.single_scores[case])
-                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+                df = df.reindex(df.mean().sort_values().index, axis=1)
             else:
                 df = pd.DataFrame(self.single_scores[case])
 
@@ -678,6 +685,7 @@ class PredictTieStrength(object):
 
         # Plot baseline violin plot
         df_baseline = df.div(df.w, axis=0)
+        df_baseline[df.w == 0] = df[df.w == 0] # Replace 0's with actual value
         axs[0,0].axhline(0, linestyle='-', alpha=1, color='grey')
         for loc in ['top', 'right', 'left', 'bottom']:
             axs[0,0].spines[loc].set_visible(False)
@@ -724,12 +732,72 @@ class PredictTieStrength(object):
 
         name = self.save_prefix + 'singlevar_baseline_{}.pdf'.format(case)
 
+        fig.tight_layout()
+        plt.subplots_adjust(hspace=.2)
+        fig.savefig(name)
+        plt.clf()
+
+        #plt.close('all')
+
+
+    def plot_heatmap(self, df, sort_order='average', title='', savename=''):
+        plt.close('all')
+        latexity(6, 2.2, 2, usetex=True)
+
+        g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$F1$'})
+        g.invert_yaxis()
+        xticks = [i + .5 for i in range(len(df.columns))]
+        ticklabels = [self.col_labels[col] for col in df]
+
+        g.axes.set_xticks(xticks)
+        g.axes.set_xticklabels(ticklabels, rotation=90)
+        percentiles = np.arange(0, 100, 5)
+
+        g.axes.set_yticks(np.arange(.5, len(percentiles) + .5, 3))
+        g.axes.set_yticklabels(percentiles[0:len(percentiles):3], rotation=0)
+        g.vlines(range(df.shape[1] + 1), *g.get_ylim(), color='grey', alpha=.3)
+        if self.y.name == 'ovrl':
+            g.axes.set_ylabel('Overlap Percentile \n' + r'$\eta\left(O\right)$')
+        elif self.y.name == 'ov_mean':
+            g.axes.set_ylabel('Overlap Percentile \n' + r'$\eta\left(\hat{O}^t\right)$')
+        g.axes.set_title(title, loc='center')
+
+        name = self.save_prefix + 'singlevar_baseline_{}.pdf'.format(case)
+
         g.get_figure().tight_layout()
         plt.subplots_adjust(hspace=.2)
         g.get_figure().savefig(name)
         plt.clf()
 
-        #plt.close('all')
+
+    def plot_singlevar_f1(self, case='AVG', sort_order='average', title=''):
+        plt.close('all')
+        latexify(6, 2.2, 2, usetex=True)
+
+        if case == 'AVG':
+            df = self.average_score
+            if sort_order in ['average', 'self']:
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        elif case == 'MAX':
+            df = self.single_scores[case]
+            if sort_order == 'average':
+                df_a = self.average_score
+                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+            elif sort_order == 'self':
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        else:
+            if sort_order == 'average':
+                df_a = self.average_score
+                df = pd.DataFrame(self.single_scores[case])
+                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+            elif sort_order == 'self':
+                df = pd.DataFrame(self.single_scores[case])
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+            else:
+                df = pd.DataFrame(self.single_scores[case])
+        savename = 'singlevar_baseline_{}.pdf'.format(case)
+        self.plot_heatmap(df, sort_order, title, savename)
+
 
     def plot_dual_var(self, title=r'(ii)'):
         plt.close('all')
