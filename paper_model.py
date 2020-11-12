@@ -55,6 +55,48 @@ class PredictTieStrength(object):
                 'w_hrs': r'$a_h$',
                 'w_day': r'$a_d$'}
         self.col_labels.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
+        self.col_labels_full = {'mu': 'IET avg., ' + r'$\bar{\tau}$',
+                'sig': 'IET std., ' + r'$\bar{\sigma_{\tau}}$',
+                'b': 'Burstiness, ' + r'$B$',
+                'mu_r': 'Avg. relay time, ' + r'$\bar{\tau}_R$',
+                'r_frsh': 'Relat. freshness, ' + r'$\hat{f}$',
+                'age': 'Age, ' + r'$age$',
+                't_stb': 'Temporal stability, ' + r'$TS$',
+                'm': 'Memory, ' + r'$M$',
+                'bt_mu': 'Avg. events/burst, ' + r'$\bar{E}$',
+                'bt_sig': 'Std. events/burst, ' + r'$\sigma^{E}$',
+                'bt_cv': 'CV events/burst, ' + r'$CV^E$',
+                'bt_n': 'Num. Bursts, ' + r'$N^E$',
+                'bt_tmu': 'Avg. inter. t., ' + r'$\bar{t}$',
+                'bt_tsig': 'Std. inter. t., ' + r'$\sigma_{t}$',
+                'bt_logt': 'Test inter. t., 'r'$log(T)$',
+                'out_call_div': 'Daily behaviour, ' + r'$JSD$',
+                'r': 'Reciprocity, ' + r'$r$',
+                'w': r'\textbf{Num. Calls}, ' + r'$\mathbf{w}$',
+                'c_star': 'Weekly profile, ' + r'$C^*$',
+                'e0_div': r'$JSD_{diff}$',
+                'ovrl': r'$O$',
+                'avg_len': 'Avg. length, ' + r'$\hat{l}$',
+                'len': 'Total length, ' + r'$l$',
+                'w_hrs': 'Active hours, ' + r'$a_h$',
+                'w_day': 'Active days, ' + r'$a_d$',
+                'c1': 'Night, ' + r'$C1$',
+                'c2': 'Monday morning, ' + r'$C2$',
+                'c3': 'Monday morning, ' + r'$C3$',
+                'c4': 'Weekday 7am, ' + r'$C4$',
+                'c5': 'Weekday afternoon, ' + r'$C5$',
+                'c6': 'Weekday evening, ' + r'$C6$',
+                'c7': 'Weekay morning, ' + r'$C7$',
+                'c8': 'Thursday morning, ' + r'$C8$',
+                'c9': 'Weekend evening, ' + r'$C9$',
+                'c10': 'Weekend morning, ' + r'$C10$',
+                'c11': 'Saturday. morning, ' + r'$C11$',
+                'c12': 'Weekend afternoon, ' + r'$C12$',
+                'c13': 'Saturday afternoon, ' + r'$C13$',
+                'c14': 'Sunday morning, ' + r'$C14$',
+                'c15': 'Sunday afternoon, ' + r'$C15$',
+                }
+        #self.col_labels_full.update({'c' + str(i): 'C' + r'$' + str(i) + '$' for i in range(1, 16)})
 
         if data_path:
             self.read_tables(data_path, y_var, remove, cluster_only, df_name)
@@ -240,7 +282,7 @@ class PredictTieStrength(object):
                 y_pred = mod.predict(xt)
                 y_prob = mod.predict_proba(xt)[:, 0]
                 if pdep is None:
-                    pdep = partial_dependence(mod, x, [0])
+                    pdep = (0, 0) #partial_dependence(mod, x, [0])
 
                 scores.append(matthews_corrcoef(self.yb.iloc[test_idx], y_pred))
                 yb = np.concatenate((yb, self.yb.iloc[test_idx].values)) if len(yb) > 0 else self.yb.iloc[test_idx].values
@@ -248,11 +290,15 @@ class PredictTieStrength(object):
                 aucs.append(roc_auc_score(self.yb.iloc[test_idx], y_prob))
                 f1s.append(f1_score(self.yb.iloc[test_idx], y_pred))
 
-            self.single_scores[model[0]][var].append(np.mean(scores))
+            try:
+                self.single_scores[model[0]][var].append(np.mean(scores))
+            except:
+                import pdb; pdb.set_trace()
             self.boot_scores[model[0]][var].append(self.bootstrap_ci(yb, y_preds))
             self.auc_scores[model[0]][var].append(np.mean(aucs))
             self.f1_scores[model[0]][var].append(np.mean(f1s))
             self.partial_dep[model[0]][var].append(pdep)
+        print('Number of alphas for model {}: {}'.format(model[0], len(self.single_scores[model[0]][var])))
         self.save_scores(self.single_scores[model[0]], 'single_scores.{}.p'.format(model[0]))
         self.save_scores(self.boot_scores[model[0]], 'boot_scores.{}.p'.format(model[0]))
         self.save_scores(self.auc_scores[model[0]], 'auc_scores.{}.p'.format(model[0]))
@@ -396,7 +442,6 @@ class PredictTieStrength(object):
 
 
     def load_scores(self, single=False, dual=False, full=False):
-        #NOTE: if the pickles were created with python2, they must be read w python2
         single_files = [f for f in listdir(self.save_prefix) if 'single_scores' in f] if single else []
         dual_files = [f for f in listdir(self.save_prefix) if f.startswith('dual_scores')] if dual else []
         full_files = [f for f in listdir(self.save_prefix) if 'full_scores' in f] if full else []
@@ -409,22 +454,36 @@ class PredictTieStrength(object):
         self.single_scores = {}
         for sf in single_files:
             model = sf.split('.')[1]
-            self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
+            try:
+                self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'))
+            except:
+                self.single_scores[model] = pickle.load(open(self.save_prefix + sf, 'rb'), encoding='bytes')
+
 
         self.boot_scores = {}
         for bf in boot_files:
             model = bf.split('.')[1]
-            self.boot_scores[model] = pickle.load(open(self.save_prefix + bf, 'rb'))
+            try:
+                self.boot_scores[model] = pickle.load(open(self.save_prefix + bf, 'rb'))
+            except:
+                self.boot_scores[model] = pickle.load(open(self.save_prefix + bf, 'rb'), encoding='bytes')
 
         self.auc_scores = {}
         for af in auc_files:
             model = af.split('.')[1]
-            self.auc_scores[model] = pickle.load(open(self.save_prefix + af, 'rb'))
+            try:
+                self.auc_scores[model] = pickle.load(open(self.save_prefix + af, 'rb'))
+            except:
+                self.auc_scores[model] = pickle.load(open(self.save_prefix + af, 'rb'), encoding='bytes')
 
         self.f1_scores = {}
         for ff in f1_files:
             model = ff.split('.')[1]
-            self.f1_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'))
+            try:
+                self.f1_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'))
+            except:
+                self.f1_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'), encoding='bytes')
+
 
         self.dual_scores = {}
         for df in dual_files:
@@ -432,19 +491,27 @@ class PredictTieStrength(object):
             #if model == 'ABC':
             if self.dual_scores.get(fvar, 0) == 0:
                 self.dual_scores[fvar] = {}
-            self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
+            try:
+                self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
+            except:
+                self.dual_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'), encoding='bytes')
+
 
         self.dual_boot_scores = {}
         for df in boot_dual_files:
             fvar, model = df.split('.')[1:3]
             if self.dual_boot_scores.get(fvar, 0) == 0:
                 self.dual_boot_scores[fvar] = {}
-            self.dual_boot_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
+            try:
+                self.dual_boot_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'))
+            except:
+                self.dual_boot_scores[fvar][model] = pickle.load(open(self.save_prefix + df, 'rb'), encoding='bytes')
 
 
         self.feature_imp = {}
         self.full_scores = {}
         for ff in full_files:
+#### This might fail in python 3 bc of encoding, see other pickle loads
             model = ff.split('.')[1]
             self.full_scores[model] = pickle.load(open(self.save_prefix + ff, 'rb'))
         for imf in imps_files:
@@ -543,13 +610,10 @@ class PredictTieStrength(object):
             max_var[i, j] = boot_scores[mod][i, j]
         return max_score, max_var
 
-
-
     def get_variance(self, boot_score):
         var_dict = OrderedDict((k, [vi[2] for vi in v]) for k, v in boot_score.items())
         var_mat = pd.DataFrame(var_dict).values
         return var_mat
-
 
     def merge_scores(self):
         mat = [] #List of model score df's (each df is an alphas-ftrs score mat)
@@ -560,17 +624,39 @@ class PredictTieStrength(object):
         boot_scores = []
 
         models = ['ABC', 'RF', 'LR', 'QDA']
+        auc_mat = []
+        f1_mat = []
         for model in models:
             scores = self.single_scores[model]
             colnames = scores.keys()
             scores = pd.DataFrame(scores).values
+            auc = self.auc_scores.get(model, {})
+            auc_scores = pd.DataFrame(auc).values
+            f1 = self.f1_scores.get(model, {})
+            f1_scores = pd.DataFrame(auc).values
+
+            if scores.shape[0] < 20:
+                r, c = scores.shape # REMOVE THIS,
+                scores = np.concatenate((scores, np.zeros((20 - r, c))), axis=0)
+                auc_scores = np.concatenate((auc_scores, np.zeros((20 - r, c))), axis=0)
+                f1_scores = np.concatenate((f1_scores, np.zeros((20 - r, c))), axis=0)
+                print(f1_scores.shape)
+
             mat.append(scores)
             var_mat = self.get_variance(self.boot_scores[model])
             boot_scores.append(var_mat)
+            auc_mat.append(auc_scores)
+            f1_mat.append(f1_scores)
 
-        max_score, max_variance = self.max_and_var(mat, boot_scores)
+        max_score = np.max(mat, 0) # REMOVE THIS
+        #max_score, max_variance = self.max_and_var(mat, boot_scores)
+        max_auc = np.max(auc_mat, 0)
+        max_f1 = np.max(f1_mat, 0)
+
         self.average_score = pd.DataFrame(max_score, columns=colnames)
-        self.boot_var = pd.DataFrame(max_variance, columns=colnames)
+        #self.average_auc = pd.DataFrame(max_auc, columns=colnames)
+        #self.average_f1 = pd.DataFrame(max_f1, columns=colnames)
+
 
 
         #CASE: test how max plot looks like
@@ -654,12 +740,30 @@ class PredictTieStrength(object):
         self.merge_scores()
         self.plot_singlevar_mcc()
 
+    def result_table(self):
+        # TABLE for paper including ovlp quantiles .25, .5, .75, avg, max.
+        self.load_scores(single=True)
+        self.merge_scores()
+        data = {}
+        data['q1'] = self.average_score.loc[4]
+        data['q2'] = self.average_score.loc[10]
+        data['q3'] = self.average_score.loc[15]
+        data['mean'] = self.average_score.mean()
+        data['max'] = self.average_score.max()
+        data = np.round(pd.DataFrame(data), 3)
+        dfname = self.save_prefix + 'sscore_summary.csv'
+        data.to_csv(dfname, sep=' ')
+
     def plot_singlevar_mcc(self, case='AVG', sort_order='average', title=''):
         plt.close('all')
-        latexify(6, 2.2, 2, usetex=True)
+        latexify(6, 4, 2, usetex=True)
 
         if case == 'AVG':
             df = self.average_score
+            try:
+                df.columns[0].encode('ascii')
+            except AttributeError:
+                df.columns = [col.decode('ascii') for col in df.columns]
             if sort_order in ['average', 'self']:
                 df = df.reindex(df.mean().sort_values().index, axis=1)
         elif case == 'MAX':
@@ -680,31 +784,41 @@ class PredictTieStrength(object):
             else:
                 df = pd.DataFrame(self.single_scores[case])
 
-        fig, axs = plt.subplots(2, 2, gridspec_kw={'height_ratios': [1, 3], 'width_ratios': [.95, .03]}) #Generate four axes ([[baseline, empty], [heatmap, cbar]])
+        df_max = df.max()
+        from re import match
+        for var in df.columns:
+            if (df_max[var] < .1) and match('c\d', var):
+                df.drop(var, axis=1, inplace=True)
+        fig, axs = plt.subplots(3, 2, gridspec_kw={'height_ratios': [.5, 1, 4], 'width_ratios': [.95, .03]}) #Generate four axes ([[baseline, empty], [heatmap, cbar]])
         #cbar_ax = fig.add_axes([.905, .3, .05, .3])
 
         # Plot baseline violin plot
-        df_baseline = df.div(df.w, axis=0)
+        df_baseline = df.sub(df.w, axis=0)
         df_baseline[df.w == 0] = df[df.w == 0] # Replace 0's with actual value
-        axs[0,0].axhline(0, linestyle='-', alpha=1, color='grey')
+        #axs[0,0].axhline(0, linestyle='-', alpha=1, color='grey')
         for loc in ['top', 'right', 'left', 'bottom']:
-            axs[0,0].spines[loc].set_visible(False)
-        g0 = sns.violinplot(data=df_baseline, color='salmon', orient='v', ax=axs[0,0], linewidth=0, inner=None)
-        axs[0,0].axhline(1, linestyle=':', alpha=.5, color='red')
+            axs[1,0].spines[loc].set_visible(False)
+        g0 = sns.violinplot(data=df_baseline, color='salmon', orient='v', ax=axs[1,0], linewidth=1, inner=None, cut=0)
+        axs[1,0].axhline(0, linestyle=':', alpha=.5, color='red')
         g0.vlines(np.arange(.5, df.shape[1] + .5), *g0.get_ylim(), color='grey', alpha=.3)
         g0.set_xticklabels([])
         g0.set_xticks([])
         g0.set_xlim([-.5, df.shape[1]-.5])
-        g0.set_ylabel(r'$\frac{MCC_*}{MCC_w}$')
+        g0.set_ylabel(r'$MCC_*-$' + '\n' + r'$MCC_w$')
         # Add "1" to array
-        yticks = list(g0.get_yticks()) + [1.]
-        g0.set_yticks(sorted(yticks)[1:-1])
+        yticks = [-1, 0, 1] #list(g0.get_yticks()) + [1.]
+        #g0.set_yticks(yticks) #sorted(yticks)[1:-1])
 
         axs[0, 1].axis('off') #Erase extra axis
+        axs[1, 1].axis('off') #Erase extra axis
+        #axs[1, 0].axis('off') #Erase extra axis
+
+        # Plot directionality
+        self.plot_directionality(df, axs[0, 0])
 
         # Plot heatmap
 
-        g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'}, ax=axs[1,0], cbar_ax=axs[1, 1])
+        g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$MCC$'}, ax=axs[2, 0], cbar_ax=axs[2, 1])
         g.invert_yaxis()
 
         # SPECIAL delta_t case
@@ -714,7 +828,7 @@ class PredictTieStrength(object):
             ticklabels = [self.col_labels[j] for i, j in enumerate(df.columns) if i + .5 in xticks]
         else:
             xticks = [i + .5 for i in range(len(df.columns))]
-            ticklabels = [self.col_labels[col] for col in df]
+            ticklabels = [self.col_labels_full[col] for col in df]
 
 
         g.axes.set_xticks(xticks)
@@ -737,12 +851,58 @@ class PredictTieStrength(object):
         fig.savefig(name)
         plt.clf()
 
-        #plt.close('all')
+    def plot_directionality(self, df, ax):
+
+        dts = {var: [(0, 1)] for var in df.columns}
+        dts['avg_len'] = [(0, -1)]
+        dts['avg_len'].append((0, .2))
+        dts['mu'] = [(0, -1)]
+        dts['sig'] = [(0, -1)]
+        dts['b'] = [(0, -.5)]
+        dts['b'].append((0, .5))
+        dts['mu_r'] = [(0, -1)]
+        dts['r_frsh'] = [(0, -1)]
+        dts['age'] = [(0, -1)]
+        dts['m'].append((0, -.2))
+        dts['bt_mu'] = [(0, -.5)]
+        dts['bt_mu'].append((0, .5))
+        dts['bt_tmu'] = [(0, -.5)]
+        dts['bt_tmu'].append((0, .5))
+        dts['bt_logt'] = [(0, -1)]
+        dts['r'] = [(0, -1)]
+        dts['out_call_div'] = [(0, -1)]
+        dts['c1'] = [(0, -1)]
+        dts['c1'].append((0, .1))
+        dts['c6'].append((0, -.2))
+        dts['c5'].append((0, -.2))
+        dts['cstar'] = [(None, None)]
+        ax.set_ylim(-1.5, 1.5)
+        ax.axhline(y=0, color='grey', ls='--', alpha=.3, lw=1) #set_ylim(-1.3, 1.3)
+        ax.set_xlim(0, len(df.columns))
+        ax.set_ylabel('Direct.')
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        #ax.axis('off')
+        ax.tick_params(axis='both', which='both', bottom='off', left='off', labelbottom='off', top='off', right='off', labelleft='off')
+        ax.set_yticks([])
+        ax.set_xticks([])
+        for i, var in enumerate(df.columns):
+            for arr in dts[var]:
+                col = '#347768' if arr[1] > 0 else '#6B273D'
+                col = 'g' if arr[1] > 0 else 'r'
+                ax.arrow(i + .5, #x start
+                        0, # y start
+                        0, # change in x
+                        arr[1], #change in y
+                        width=.2, head_width=.3,
+                        fc=col, ec=col)
 
 
     def plot_heatmap(self, df, sort_order='average', title='', savename=''):
         plt.close('all')
-        latexity(6, 2.2, 2, usetex=True)
+        latexify(6, 2.2, 2, usetex=True)
 
         g = sns.heatmap(df, cmap='GnBu', cbar_kws={'label':r'$F1$'})
         g.invert_yaxis()
@@ -762,22 +922,20 @@ class PredictTieStrength(object):
             g.axes.set_ylabel('Overlap Percentile \n' + r'$\eta\left(\hat{O}^t\right)$')
         g.axes.set_title(title, loc='center')
 
-        name = self.save_prefix + 'singlevar_baseline_{}.pdf'.format(case)
-
         g.get_figure().tight_layout()
         plt.subplots_adjust(hspace=.2)
-        g.get_figure().savefig(name)
+        g.get_figure().savefig(savename)
         plt.clf()
 
 
     def plot_singlevar_f1(self, case='AVG', sort_order='average', title=''):
         plt.close('all')
         latexify(6, 2.2, 2, usetex=True)
-
+        df_score = self.average_score
         if case == 'AVG':
-            df = self.average_score
+            df = 1-self.average_f1
             if sort_order in ['average', 'self']:
-                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+                df = df.reindex(df_score.mean().sort_values().index, axis=1)
         elif case == 'MAX':
             df = self.single_scores[case]
             if sort_order == 'average':
@@ -795,7 +953,36 @@ class PredictTieStrength(object):
                 df = df.reindex_axis(df.mean().sort_values().index, axis=1)
             else:
                 df = pd.DataFrame(self.single_scores[case])
-        savename = 'singlevar_baseline_{}.pdf'.format(case)
+        savename = 'singlevar_f1_{}.pdf'.format(case)
+        self.plot_heatmap(df, sort_order, title, savename)
+
+
+    def plot_singlevar_auc(self, case='AVG', sort_order='average', title=''):
+        plt.close('all')
+        latexify(6, 2.2, 2, usetex=True)
+        df_score = self.average_score
+        if case == 'AVG':
+            df = 1-self.average_auc
+            if sort_order in ['average', 'self']:
+                df = df.reindex(df_score.mean().sort_values().index, axis=1)
+        elif case == 'MAX':
+            df = self.single_scores[case]
+            if sort_order == 'average':
+                df_a = self.average_score
+                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+            elif sort_order == 'self':
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+        else:
+            if sort_order == 'average':
+                df_a = self.average_score
+                df = pd.DataFrame(self.single_scores[case])
+                df = df.reindex_axis(df_a.mean().sort_values().index, axis=1)
+            elif sort_order == 'self':
+                df = pd.DataFrame(self.single_scores[case])
+                df = df.reindex_axis(df.mean().sort_values().index, axis=1)
+            else:
+                df = pd.DataFrame(self.single_scores[case])
+        savename = 'singlevar_auc_{}.pdf'.format(case)
         self.plot_heatmap(df, sort_order, title, savename)
 
 
@@ -865,7 +1052,7 @@ class PredictTieStrength(object):
 
     def plot_all_single(self, sort_order='self'):
         title = {'AVG': r'(i)', 'LR': r'(i)', 'QDA':'(ii)', 'RF':'(iii)', 'ABC':'(iv)'}
-        for case in ['AVG'] + self.single_scores.keys():
+        for case in ['AVG'] + [k for k in self.single_scores.keys()]:
             self.plot_singlevar_mcc(case=case, sort_order=sort_order, title=title[case])
 
     def plot_corrs(self):
